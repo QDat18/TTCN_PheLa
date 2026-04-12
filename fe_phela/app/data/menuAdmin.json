@@ -1,0 +1,89 @@
+{
+    "mainMenu": [
+        {
+          "id":1,
+          "title": "Sản phẩm",
+          "link": "/admin/san-pham",
+          "subMenu": [
+            {
+              "title": "Sản phẩm",
+              "link": "/admin/san-pham"
+            },
+            {
+              "title": "Danh mục",
+              "link": "/admin/danh-muc"
+            }
+          ]
+        },
+        {
+          "id":2,
+          "title": "Đơn hàng",
+          "link": "/admin/don-hang",
+          "subMenu": []
+        },
+        {
+          "id":3,
+          "title": "Báo cáo",
+          "link": "/admin/doanh-thu",
+          "subMenu": [
+            { "title": "Doanh thu", "link": "/admin/doanh-thu" },
+            { "title": "Đơn hàng", "link": "/admin/bao-cao-don-hang" }
+          ]
+        },
+        {
+          "id":4,
+          "title": "Khuyến mãi",
+          "link": "/admin/ma-giam-gia",
+          "subMenu": []
+        },
+        {
+          "id":5,
+          "title": "Nhân viên",
+          "link": "/admin/staff",
+          "subMenu": []
+        },
+         {
+          "id":6,
+          "title": "Cửa hàng",
+          "link": "/admin/store",
+          "subMenu": []
+        },
+         {
+          "id":7,
+          "title": "Tuyển dụng",
+          "link": "/admin/tin-tuyen-dung",
+          "subMenu": [
+            {
+              "title": "Tin tuyển dụng",
+              "link": "/admin/tin-tuyen-dung"
+            },
+            {
+              "title": "Ứng viên",
+              "link": "/admin/ung-vien"
+            }
+          ]
+        },
+        {
+          "id":8,
+          "title": "Khác",
+          "link": "/admin/tin-tuc-admin",
+          "subMenu": [
+            {
+              "title": "Quản lý tin tức",
+              "link": "/admin/tin-tuc-admin"
+            },
+            {
+              "title": "Quản lý banner",
+              "link": "/admin/banner"
+            }
+          ]
+        },
+         {
+          "id":9,
+          "title": "Hỗ trợ",
+          "link": "/admin/support",
+          "subMenu": []
+        }
+      ]
+  }
+  

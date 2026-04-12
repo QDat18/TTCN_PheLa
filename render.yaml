@@ -1,0 +1,102 @@
+services:
+  # Backend API Service
+  - type: web
+    name: phela-backend
+    runtime: docker
+    dockerfilePath: ./be_phela/Dockerfile
+    dockerContext: ./be_phela
+    plan: free
+    branch: main
+    healthCheckPath: /healthz
+    envVars:
+      # Database Configuration
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      
+      # Port Configuration (Render sets this automatically)
+      - key: PORT
+        value: 8080
+      
+      # JWT Configuration
+      - key: JWT_SIGNER_KEY
+        sync: false
+      
+      # Application Configuration
+      - key: APP_BASE_URL
+        value: https://phela-backend-dyl7.onrender.com
+      
+      # Email Configuration
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 587
+      - key: SENDGRID_API_KEY
+        sync: false
+      
+      # Cloudinary Configuration
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      
+      # VNPay Configuration
+      - key: VNPAY_TMN_CODE
+        sync: false
+      - key: VNPAY_HASH_SECRET
+        sync: false
+      - key: VNPAY_URL
+        value: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+      - key: VNPAY_RETURN_URL
+        value: https://phela-backend-dyl7.onrender.com/api/payment/vnpay-return
+      
+      # CORS Configuration
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://phela-customer-w519.onrender.com,https://phela-admin.onrender.com
+
+  # Frontend Customer Service
+  - type: web
+    name: phela-customer
+    runtime: node
+    rootDir: ./fe_phela
+    plan: free
+    branch: main
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node server.mjs
+    envVars:
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: VITE_API_URL
+        value: https://phela-backend-dyl7.onrender.com
+      - key: VITE_ROLE
+        value: customer
+      - key: NODE_ENV
+        value: production
+
+  # Frontend Admin Service
+  - type: web
+    name: phela-admin
+    runtime: node
+    rootDir: ./fe_phela
+    plan: free
+    branch: main
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node server.mjs
+    envVars:
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: VITE_API_URL
+        value: https://phela-backend-dyl7.onrender.com
+      - key: VITE_ROLE
+        value: admin
+      - key: NODE_ENV
+        value: production

@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@layer components {
+    .head-order-nav {
+        @apply bg-[#1f120b] text-white py-3 shadow-md;
+    }
+
+    .head-order-link {
+        @apply text-white/80 hover:text-white transition-colors relative;
+    }
+
+    .head-order-link.active {
+        @apply text-white after:content-[''] after:absolute after:-bottom-2 after:left-0 after:w-full after:h-0.5 after:bg-white;
+    }
+}

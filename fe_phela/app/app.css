@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Phe La Brand Colors - Vibrant Contrast */
+  --color-primary: #1B4332;       /* Forest Green (Phe La) */
+  --color-primary-dark: #1A120B;  /* Midnight Coffee (Very Dark) */
+  --color-primary-cream: #FDF5E6; /* Old Lace Cream (High Contrast) */
+  --color-accent-gold: #E2B13C;   /* Phe La Gold */
+  --color-wood-dark: #2B1B12;     /* Dark Wood for boxes */
+  --color-wood-light: #F9F3EA;    /* Light Cream for page bg */
+}
+
+/* Global High-Contrast Defaults */
+html,
+body {
+  background-color: var(--color-wood-light) !important;
+  color: var(--color-primary-dark) !important;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Force light mode to prevent involuntary dark mode white-text bugs */
+body {
+  color-scheme: light !important;
+}
+
+/* High Contrast Classes */
+.text-high-contrast-light { color: var(--color-primary-cream) !important; }
+.text-high-contrast-dark { color: var(--color-primary-dark) !important; }
+.bg-phela-dark { background-color: var(--color-primary-dark) !important; }
+.bg-phela-wood { background-color: var(--color-wood-dark) !important; }
+.bg-phela-cream { background-color: var(--color-wood-light) !important; }
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-primary-dark);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Sidebar & Category High Contrast */
+.category-item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--color-primary-cream);
+  opacity: 0.8;
+}
+
+.category-item:hover, .category-item.active {
+  color: var(--color-accent-gold) !important;
+  background-color: rgba(226, 177, 60, 0.1);
+  opacity: 1;
+}
+
+/* Better scrollbar for Coffee theme */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-primary-cream); }
+::-webkit-scrollbar-thumb { background: var(--color-primary-dark); border-radius: 10px; }

@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+target/
+build/
+dist/
+.react-router/
+
+# Environment Variables (CRITICAL)
+.env
+.env.local
+.env.*.local
+.env.admin
+.env.customer
+.env.production
+*.env*
+
+# IDEs and Tools
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+
+# Backend specific
+be_phela/target/
+be_phela/.mvn/
+be_phela/*.jar
+be_phela/.project
+be_phela/.classpath
+be_phela/.settings/
+be_phela/.factorypath
+
+# Frontend specific
+fe_phela/node_modules/
+fe_phela/build/
+fe_phela/dist/
+fe_phela/.react-router/

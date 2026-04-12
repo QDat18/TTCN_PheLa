@@ -1,0 +1,75 @@
+/* Product listing */
+aside {
+    border-right: 1px solid #e5e7eb;
+    padding-right: 1rem;
+}
+
+aside h3 {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #1f2937;
+}
+
+aside ul li button {
+    font-size: 1rem;
+    color: #4b5563;
+    transition: color 0.3s;
+}
+
+aside ul li button:hover {
+    color: #d4a373; /* Màu primary */
+}
+
+/* Style cho sản phẩm bên phải */
+.list-product-item h4 {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #1f2937;
+}
+
+.product-item {
+    position: relative;
+    transition: box-shadow 0.3s;
+}
+
+.product-item:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.product-item .img img {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+}
+
+.product-item .content {
+    padding: 1rem;
+}
+
+.title-product a {
+    font-size: 1.125rem;
+    color: #1f2937;
+    transition: color 0.3s;
+}
+
+.title-product a:hover {
+    color: #d4a373; /* Màu primary */
+}
+
+.price {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #d4a373; /* Màu primary */
+}
+
+.add-to-cart-btn {
+    background-color: #be7352;
+    color: white;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+.add-to-cart-btn:hover {
+    background-color: #b15d41;
+}

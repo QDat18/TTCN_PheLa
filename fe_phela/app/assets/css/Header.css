@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+@layer base {}
+
+@layer components {
+  .nav {
+    @apply bg-[#1f120b] flex justify-center items-center px-5 py-2.5 text-sm;
+  }
+
+  .hamburger-icon {
+    @apply text-2xl cursor-pointer z-20 md:hidden text-white;
+  }
+
+  .menu-container {
+    @apply block;
+  }
+
+  .main-menu {
+    @apply m-0 p-0 flex space-x-5 relative;
+  }
+
+  .menu-item {
+    @apply relative;
+  }
+
+  .menu-item>a {
+    @apply text-white no-underline hover:underline uppercase;
+  }
+
+  .sub-menu {
+    @apply absolute left-0 mt-5 bg-[#1f120b] shadow-lg p-2 invisible opacity-0 transition-all duration-300;
+    min-width: 220px;
+    z-index: 10;
+  }
+
+  .menu-item:hover .sub-menu {
+    @apply visible opacity-100;
+  }
+
+  .sub-menu li {
+    @apply px-4 py-2 hover:bg-[#d48437]/20 rounded;
+  }
+
+  .sub-menu li a {
+    @apply no-underline hover:text-black uppercase;
+  }
+
+  .navbar-links {
+    @apply flex gap-8 items-center;
+  }
+
+  .navbar-links a {
+    @apply text-sm uppercase;
+  }
+
+  .navbar-links a:hover {
+    @apply underline;
+  }
+
+  .btn-login {
+    @apply px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 text-white border border-white hover:bg-white hover:text-gray-900;
+  }
+
+
+  @media (max-width: 768px) {
+    .menu-container {
+      @apply absolute top-0 right-0 w-70 h-screen bg-[#1f120b] flex flex-col items-start justify-start transition-all duration-300 mt-5;
+      transform: translateX(100%);
+      z-index: 10;
+      padding-top: 64px;
+    }
+
+    .menu-container.open {
+      transform: translateX(0);
+    }
+
+    .main-menu {
+      @apply flex flex-col space-x-0 space-y-5 text-left pl-5;
+    }
+
+    .menu-item {
+      @apply relative;
+    }
+
+    .menu-item>a {
+      @apply text-sm;
+    }
+
+    .menu-item:hover .subMenu {
+      @apply block;
+    }
+
+    .sub-menu {
+      @apply static mt-0 ml-4;
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .sub-menu li {
+      @apply px-4 py-2;
+    }
+  }
+
+  .navbar-links {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Style cho user menu và dropdown */
+  .user-menu {
+    position: relative;
+  }
+
+  .user-menu>div {
+    display: flex;
+    align-items: center;
+  }
+
+  .user-menu span {
+    color: white;
+    font-size: 1rem;
+  }
+
+  /* Style cho dropdown menu */
+  .dropdown-menu {
+    @apply absolute left-0 mt-5 bg-[#1f120b] shadow-lg p-2 invisible opacity-0 transition-all duration-300;
+    min-width: 220px;
+    z-index: 10;
+  }
+
+  .user-menu:hover .dropdown-menu {
+    display: block;
+  }
+
+  .dropdown-item {
+    @apply block text-white px-4 py-2 hover:bg-[#d48437]/20 rounded;
+
+}
+}

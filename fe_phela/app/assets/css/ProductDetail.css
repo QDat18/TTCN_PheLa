@@ -1,0 +1,16 @@
+.product-detail-img {
+    max-height: 500px;
+    object-fit: contain;
+}
+
+.add-to-cart-btn {
+    background-color: #be7352;
+    color: white;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+.add-to-cart-btn:hover {
+    background-color: #b15d41;
+}

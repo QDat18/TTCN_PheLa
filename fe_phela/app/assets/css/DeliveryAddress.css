@@ -1,0 +1,15 @@
+.bg-primary {
+  background-color: #d4a373; /* Màu primary từ giao diện */
+}
+
+.text-primary {
+  color: #d4a373; /* Màu chữ primary từ giao diện */
+}
+
+.bg-primary:hover {
+  background-color: #b38b59; /* Màu khi hover */
+}
+
+.border-primary {
+  border-color: #d4a373; /* Màu viền primary từ giao diện */
+}
