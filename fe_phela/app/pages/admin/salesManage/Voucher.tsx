@@ -189,13 +189,13 @@ const VoucherManager = () => {
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-gray-400">Giảm giá:</span>
                                                 <span className="font-bold text-[#2C1E16]">
-                                                    {voucher.type === 'PERCENTAGE' ? `${voucher.value}%` : 
-                                                     voucher.type === 'FIXED_AMOUNT' ? `${voucher.value.toLocaleString()}đ` : 'Free Ship'}
+                                                    {voucher.type === 'PERCENTAGE' ? `${voucher.value || 0}%` : 
+                                                     voucher.type === 'FIXED_AMOUNT' ? `${(voucher.value || 0).toLocaleString()}đ` : 'Free Ship'}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-gray-400">Đơn tối thiểu:</span>
-                                                <span className="font-bold text-[#2C1E16]">{voucher.minOrderAmount.toLocaleString()}đ</span>
+                                                <span className="font-bold text-[#2C1E16]">{(voucher.minOrderAmount || 0).toLocaleString()}đ</span>
                                             </div>
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-gray-400">Thời gian:</span>

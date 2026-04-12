@@ -5,7 +5,7 @@ import com.example.be_phela.model.enums.JobStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.FutureOrPresent;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -35,7 +35,7 @@ public class JobPostingCreateDTO {
     String branchCode;
 
     @NotNull(message = "Deadline is required")
-    @Future(message = "Deadline must be in the future")
+    @FutureOrPresent(message = "Deadline must be in the future or present")
     @JsonFormat(pattern = "yyyy-MM-dd")
     LocalDate deadline;
 

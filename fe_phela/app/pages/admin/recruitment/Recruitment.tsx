@@ -143,7 +143,7 @@ const Recruitment = () => {
       branchCode: branches.length > 0 ? branches[0].branchCode : '',
       branchName: branches.length > 0 ? branches[0].branchName : '',
       postingDate: '',
-      deadline: '',
+      deadline: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0],
       updatedAt: '',
       status: JobStatus.OPEN,
       applicationCount: 0

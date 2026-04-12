@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -95,16 +94,8 @@ public class JobPostingService implements IJobPostingService {
     @Override
     @Transactional
     public JobPostingDTO createJobPosting(JobPostingCreateDTO createDTO) {
-        LocalDateTime deadline;
-        try {
-            LocalDate date = LocalDate.parse(createDTO.getDeadline().toString(), DateTimeFormatter.ISO_LOCAL_DATE);
-            deadline = date.atStartOfDay();
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid deadline format: " + createDTO.getDeadline(), e);
-        }
-
-        if (deadline.isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Deadline must be in the future");
+        if (createDTO.getDeadline().isBefore(LocalDate.now())) {
+            throw new RuntimeException("Deadline must be today or in the future");
         }
 
         JobPosting jobPosting = convertCreateDTOToEntity(createDTO);
