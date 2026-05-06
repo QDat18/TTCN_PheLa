@@ -18,7 +18,8 @@ RUN mvn clean package -DskipTests
 
 # ----- STAGE 2: Run with JRE 21 -----
 # Use openjdk:21-jdk-slim
-FROM openjdk:21-jdk-slim
+# FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:21-jre-jammy
 
 # Tạo thư mục làm việc
 WORKDIR /app
