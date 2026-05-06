@@ -49,7 +49,7 @@ const ProductDetail = () => {
 
                 if (productData.sizes && productData.sizes.length > 0) {
                     const regularSize = productData.sizes.find((s: ProductSize) =>
-                        s.sizeName.toUpperCase() === 'PHÊ' || s.sizeName.toUpperCase() === 'REGULAR'
+                        ['PHÊ', 'REGULAR', 'VỪA', 'MEDIUM'].includes(s.sizeName.toUpperCase())
                     );
                     setSelectedSizeId(regularSize ? regularSize.productSizeId : productData.sizes[0].productSizeId);
                 }

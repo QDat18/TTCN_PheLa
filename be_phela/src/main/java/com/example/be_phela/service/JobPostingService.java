@@ -38,6 +38,12 @@ public class JobPostingService implements IJobPostingService {
     }
 
     private JobPostingDTO convertToDTO(JobPosting jobPosting) {
+        JobStatus status = jobPosting.getStatus();
+        // Override status to CLOSED if job is OPEN but deadline has passed
+        if (status == JobStatus.OPEN && jobPosting.getDeadline().isBefore(LocalDate.now())) {
+            status = JobStatus.CLOSED;
+        }
+
         return JobPostingDTO.builder()
                 .jobPostingId(jobPosting.getJobPostingId())
                 .jobCode(jobPosting.getJobCode())
@@ -51,7 +57,7 @@ public class JobPostingService implements IJobPostingService {
                 .postingDate(jobPosting.getPostingDate())
                 .deadline(jobPosting.getDeadline())
                 .updatedAt(jobPosting.getUpdatedAt())
-                .status(jobPosting.getStatus())
+                .status(status)
                 .applicationCount(jobPosting.getApplications() != null ? jobPosting.getApplications().size() : 0)
                 .build();
     }
@@ -114,7 +120,7 @@ public class JobPostingService implements IJobPostingService {
     @Override
     @Transactional(readOnly = true)
     public List<JobPostingDTO> getActiveJobPostings() {
-        return jobPostingRepository.findByStatusAndDeadlineAfter(JobStatus.OPEN, LocalDate.now())
+        return jobPostingRepository.findByStatusAndDeadlineGreaterThanEqual(JobStatus.OPEN, LocalDate.now())
                 .stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());

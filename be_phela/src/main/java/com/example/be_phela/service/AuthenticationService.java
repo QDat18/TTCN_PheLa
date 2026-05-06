@@ -55,7 +55,7 @@ public class AuthenticationService {
     public AuthenticationService(
             AdminService adminService,
             CustomerService customerService,
-            @org.springframework.context.annotation.Lazy AuthenticationManager authenticationManager,
+            AuthenticationManager authenticationManager,
             VerificationTokenRepository verificationTokenRepository,
             EmailService emailService,
             PasswordResetTokenRepository passwordResetTokenRepository,
@@ -68,7 +68,6 @@ public class AuthenticationService {
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
     }
-
     // Đăng ký admin
     @Transactional(rollbackFor = Exception.class)
     public AuthenticationResponse registerAdmin(AdminCreateDTO request, String clientIp){
@@ -122,14 +121,14 @@ public class AuthenticationService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-        // Kiểm tra role: Cho phép ADMIN, SUPER_ADMIN, STAFF đăng nhập portal quản trị
+        // Kiểm tra role: Chỉ cho phép ADMIN và SUPER_ADMIN đăng nhập portal quản trị
         boolean isAdmin = userDetails.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") ||
-                               a.getAuthority().equals("ROLE_SUPER_ADMIN") ||
-                               a.getAuthority().equals("ROLE_STAFF"));
+                               a.getAuthority().equals("ROLE_SUPER_ADMIN"));
 
         if (!isAdmin) {
-            log.warn("Login attempt for non-admin user on admin portal: {}", request.getUsername());
+            log.warn("Login attempt for unauthorized role on admin portal: {} with role {}", 
+                    request.getUsername(), userDetails.getAuthorities());
             throw new org.springframework.security.authentication.BadCredentialsException("Tài khoản này không có quyền truy cập trang quản trị");
         }
 
@@ -167,6 +166,7 @@ public class AuthenticationService {
             return new AuthenticationResponse(
                 jwtToken,
                 username,
+                customer.getFullname(),
                 role,
                 expiresAt,
                 customer.getCustomerId(),
@@ -180,6 +180,7 @@ public class AuthenticationService {
             return new AuthenticationResponse(
                 jwtToken,
                 username,
+                admin.getFullname(),
                 role,
                 expiresAt,
                 admin.getId(),
@@ -198,6 +199,7 @@ public class AuthenticationService {
         return new AuthenticationResponse(
             null,
             username,
+            null, // Registration response doesn't need fullname yet
             role,
             null,
             null,

@@ -1,11 +1,15 @@
 package com.example.be_phela.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;
 
 public class AuthenticationResponse {
     private String token;
     private String username;
+    private String fullname;
     private String role;
+    
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime expiresAt;
     
     // Additional fields for frontend AuthContext
@@ -18,9 +22,10 @@ public class AuthenticationResponse {
     public AuthenticationResponse() {
     }
 
-    public AuthenticationResponse(String token, String username, String role, LocalDateTime expiresAt, String id, String email, String customerId, String adminId, Double pointUse) {
+    public AuthenticationResponse(String token, String username, String fullname, String role, LocalDateTime expiresAt, String id, String email, String customerId, String adminId, Double pointUse) {
         this.token = token;
         this.username = username;
+        this.fullname = fullname;
         this.role = role;
         this.expiresAt = expiresAt;
         this.id = id;
@@ -35,6 +40,9 @@ public class AuthenticationResponse {
 
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
+
+    public String getFullname() { return fullname; }
+    public void setFullname(String fullname) { this.fullname = fullname; }
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }

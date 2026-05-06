@@ -16,8 +16,7 @@ import java.util.UUID;
 @Service
 public class CVStorageService {
 
-    // Thư mục lưu trữ CV files
-    private final Path cvStorageLocation;
+    private final FileStorageService fileStorageService;
 
     // Danh sách các định dạng file CV được chấp nhận
     private static final List<String> ALLOWED_CV_TYPES = Arrays.asList(
@@ -26,43 +25,31 @@ public class CVStorageService {
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     );
 
-    // Kích thước file tối đa (5MB)
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
+    // Kích thước file tối đa (10MB) - Tăng giới hạn cho cloud
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-    public CVStorageService(@Value("${app.cv.upload-dir:uploads/cv}") String uploadDir) {
+    private final Path cvStorageLocation;
+
+    public CVStorageService(FileStorageService fileStorageService, 
+                            @Value("${app.cv.upload-dir:uploads/cv}") String uploadDir) {
+        this.fileStorageService = fileStorageService;
         this.cvStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.cvStorageLocation);
-        } catch (Exception ex) {
-            throw new RuntimeException("Không thể tạo thư mục lưu trữ CV: " + uploadDir, ex);
-        }
     }
 
     /**
-     * Lưu file CV vào local storage
+     * Lưu file CV vào Cloudinary
      */
     public String storeCVFile(MultipartFile file) {
         // Validate file
         validateCVFile(file);
 
         try {
-            // Tạo tên file độc nhất
-            String originalFileName = file.getOriginalFilename();
-            String fileExtension = getFileExtension(originalFileName);
-            String fileName = "CV_" + UUID.randomUUID().toString() + "_" +
-                    System.currentTimeMillis() + fileExtension;
-
-            // Kiểm tra tên file an toàn
-            if (fileName.contains("..")) {
-                throw new RuntimeException("Tên file không hợp lệ: " + fileName);
+            // Upload lên Cloudinary trong folder "cv"
+            String cvUrl = fileStorageService.storeFile(file, "cv");
+            if (cvUrl == null) {
+                throw new RuntimeException("Lỗi khi upload CV lên Cloudinary: URL trả về là null");
             }
-
-            // Lưu file
-            Path targetLocation = this.cvStorageLocation.resolve(fileName);
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-
-            // Trả về đường dẫn relative
-            return "/uploads/cv/" + fileName;
+            return cvUrl;
 
         } catch (IOException ex) {
             throw new RuntimeException("Không thể lưu file CV: " + file.getOriginalFilename(), ex);
@@ -80,7 +67,7 @@ public class CVStorageService {
 
         // Kiểm tra kích thước file
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File CV không được vượt quá 5MB");
+            throw new IllegalArgumentException("File CV không được vượt quá 10MB");
         }
 
         // Kiểm tra định dạng file
@@ -122,6 +109,8 @@ public class CVStorageService {
                 Path path = this.cvStorageLocation.resolve(fileName);
                 return Files.deleteIfExists(path);
             }
+            // Đối với Cloudinary, việc xóa phức tạp hơn (cần public_id)
+            // Hiện tại tạm thời chỉ hỗ trợ xóa file local
             return false;
         } catch (IOException e) {
             System.err.println("Lỗi khi xóa file CV: " + e.getMessage());
@@ -134,12 +123,16 @@ public class CVStorageService {
      */
     public boolean fileExists(String filePath) {
         try {
-            if (filePath != null && filePath.startsWith("/uploads/cv/")) {
+            if (filePath == null) return false;
+            
+            if (filePath.startsWith("/uploads/cv/")) {
                 String fileName = filePath.substring("/uploads/cv/".length());
                 Path path = this.cvStorageLocation.resolve(fileName);
                 return Files.exists(path);
             }
-            return false;
+            
+            // Đối với Cloudinary URL, giả định là tồn tại nếu có URL
+            return filePath.startsWith("http");
         } catch (Exception e) {
             return false;
         }
@@ -150,11 +143,15 @@ public class CVStorageService {
      */
     public long getFileSize(String filePath) {
         try {
-            if (filePath != null && filePath.startsWith("/uploads/cv/")) {
+            if (filePath == null) return 0;
+
+            if (filePath.startsWith("/uploads/cv/")) {
                 String fileName = filePath.substring("/uploads/cv/".length());
                 Path path = this.cvStorageLocation.resolve(fileName);
                 return Files.size(path);
             }
+            
+            // Cloudinary: khó lấy size trực tiếp từ URL mà không dùng API
             return 0;
         } catch (IOException e) {
             return 0;

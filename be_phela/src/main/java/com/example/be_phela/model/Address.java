@@ -50,6 +50,7 @@ public class Address {
     @Column(name = "is_default", nullable = false)
     private Boolean isDefault = false;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;

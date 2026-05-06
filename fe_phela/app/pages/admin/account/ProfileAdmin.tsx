@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '~/components/admin/Header';
 import api from '~/config/axios';
 import { ToastContainer, toast } from 'react-toastify';
 import { useAuth } from '~/AuthContext';
@@ -23,7 +22,7 @@ interface PasswordUpdate {
 }
 
 const ProfileAdmin = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, updateUserProfile } = useAuth();
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +156,9 @@ const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectEle
         headers: { Authorization: `Bearer ${user?.token}` }
       });
       console.log('Update Response:', response.data);
+      
+      // Update global user state for header sync
+      await updateUserProfile({ fullname: response.data.fullname });
 
       // Cập nhật lại admin với dữ liệu mới
       setAdmin((prev) => ({
@@ -224,7 +226,7 @@ const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectEle
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-[500px]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -232,7 +234,7 @@ const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectEle
 
   if (!admin) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-[500px]">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-700">Không tìm thấy thông tin tài khoản</h2>
           <button 
@@ -247,11 +249,9 @@ const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectEle
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <ToastContainer position="top-right" autoClose={3000} />
-      <Header />
+    <div className="py-8">
+      <div className="container mx-auto px-4">
       
-      <div className="container mx-auto px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Quản lý tài khoản</h1>
         </div>

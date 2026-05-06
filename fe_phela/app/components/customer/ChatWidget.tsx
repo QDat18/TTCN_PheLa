@@ -90,12 +90,32 @@ const ChatWidget = () => {
     }, []);
 
     useEffect(() => {
+        // Toggle body class for AI widget visibility
+        if (isOpen) {
+            document.body.classList.add('chat-widget-open');
+        } else {
+            document.body.classList.remove('chat-widget-open');
+        }
+
+        // Chat connection logic
         if (isOpen && user && isCustomerUser(user)) {
             const customerId = user.customerId;
             const setupChat = async () => {
                 try {
                     const history = await getChatHistory(customerId);
-                    setMessages(history);
+                    if (history.length === 0) {
+                        const greeting: ChatMessage = {
+                            id: 'greeting',
+                            content: `Chào ${user.fullname || user.username || 'bạn'}! Phê La có thể giúp gì cho bạn?`,
+                            senderId: 'SYSTEM',
+                            senderName: 'Hệ thống',
+                            recipientId: customerId,
+                            timestamp: new Date().toISOString()
+                        };
+                        setMessages([greeting]);
+                    } else {
+                        setMessages(history);
+                    }
                 } catch (error) {
                     console.error("Failed to load chat history", error);
                     setMessages([]);
@@ -107,11 +127,32 @@ const ChatWidget = () => {
             disconnect();
         }
 
-        return () => disconnect();
-    }, [isOpen, user, connect, disconnect]);
+        return () => {
+            document.body.classList.remove('chat-widget-open');
+            disconnect();
+            
+            // Cleanup all active blob URLs to prevent memory leaks
+            messages.forEach(msg => {
+                if (msg.imageUrl?.startsWith('blob:')) {
+                    URL.revokeObjectURL(msg.imageUrl);
+                }
+            });
+        };
+    }, [isOpen, user, connect, disconnect]); // Keep messages out of deps to avoid re-run on every msg, but cleanup handles current state
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    // Final cleanup for media URLs
+    useEffect(() => {
+        return () => {
+            messages.forEach(msg => {
+                if (msg.imageUrl?.startsWith('blob:')) {
+                    URL.revokeObjectURL(msg.imageUrl);
+                }
+            });
+        };
     }, [messages]);
 
     if (!user || !isCustomerUser(user)) {
@@ -239,6 +280,8 @@ const ChatWidget = () => {
             ));
         } finally {
             event.target.value = '';
+            // Revoke blob URL after message state is updated to server response
+            URL.revokeObjectURL(tempImageUrl);
         }
     };
 

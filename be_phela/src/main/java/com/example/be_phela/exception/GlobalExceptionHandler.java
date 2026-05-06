@@ -2,33 +2,37 @@ package com.example.be_phela.exception;
 
 import com.example.be_phela.dto.response.ApiResponse;
 import com.example.be_phela.dto.response.ErrorResponse;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex, WebRequest request) {
         List<ErrorResponse.ValidationError> validationErrors = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> ErrorResponse.ValidationError.builder()
                         .field(error.getField())
-                        .rejectedValue(error.getRejectedValue() != null ? error.getRejectedValue().toString() : null)
+                        .rejectedValue(error.getRejectedValue() != null ? error.getRejectedValue().toString() : "null")
                         .message(error.getDefaultMessage())
                         .build())
-                .toList();
+                .collect(Collectors.toList());
 
         String path = request.getDescription(false).replace("uri=", "");
         ErrorResponse errorResponse = ErrorResponse.validationError(
@@ -38,8 +42,45 @@ public class GlobalExceptionHandler {
         );
         errorResponse.setPath(path);
 
-        log.warn("Validation failed for request {}: {} errors", path, validationErrors.size());
+        log.warn("Validation failed for request {}: {}", path, 
+            validationErrors.stream()
+                .map(e -> e.getField() + ": " + e.getMessage())
+                .collect(Collectors.joining(", ")));
+        
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex, WebRequest request) {
+        String path = request.getDescription(false).replace("uri=", "");
+        log.error("JSON Parse Error on path {}: {}", path, ex.getMessage());
+        
+        ErrorResponse errorResponse = ErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                "Malformed JSON request or parameter type mismatch: " + ex.getMostSpecificCause().getMessage(),
+                path,
+                "JSON_PARSE_ERROR"
+        );
+        
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException ex, WebRequest request) {
+        String path = request.getDescription(false).replace("uri=", "");
+        log.warn("Method not supported error on path {}: {}. Expected: {}", 
+            path, ex.getMethod(), ex.getSupportedHttpMethods());
+        
+        ErrorResponse errorResponse = ErrorResponse.of(
+                HttpStatus.METHOD_NOT_ALLOWED.value(),
+                "Method Not Allowed",
+                "Request method '" + ex.getMethod() + "' is not supported for this URL. Please use " + ex.getSupportedHttpMethods(),
+                path,
+                "METHOD_NOT_ALLOWED"
+        );
+        
+        return new ResponseEntity<>(errorResponse, HttpStatus.METHOD_NOT_ALLOWED);
     }
 
     @ExceptionHandler(JwtException.class)
@@ -118,7 +159,7 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = ErrorResponse.of(
                 HttpStatus.UNAUTHORIZED.value(),
                 "Unauthorized",
-                "Authentication failed",
+                "Authentication failed: " + ex.getMessage(),
                 path,
                 "AUTHENTICATION_FAILED",
                 "Please check your credentials and try again"
@@ -199,11 +240,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, WebRequest request) {
-        log.error("Unexpected error occurred: {}", ex.getMessage(), ex);
+        log.error("Unexpected error occurred on path {}: {}", 
+            request.getDescription(false), ex.getMessage(), ex);
 
         String path = request.getDescription(false).replace("uri=", "");
         ErrorResponse errorResponse = ErrorResponse.internalServerError(
-                "An unexpected error occurred. Please try again later.",
+                "An unexpected error occurred: " + ex.getMessage(),
                 path
         );
 

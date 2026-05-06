@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
-import Header from '~/components/admin/Header';
 import Modal from '~/components/admin/Modal';
 import { getAllBannersAdmin, createBanner, deleteBanner, updateBannerStatus, BannerStatus } from '~/services/bannerService';
 import { FiLock } from 'react-icons/fi';
@@ -167,61 +166,41 @@ const BannerManager = () => {
     }
 
     return (
-        <>
-            <div>
-                <ToastContainer
-                    position="top-right"
-                    autoClose={3000}
-                    toastClassName="border border-gray-200 shadow-lg"
-                    progressClassName="bg-amber-500"
-                    closeButton={false}
-                    hideProgressBar={false}
-                    newestOnTop={false}
-                    closeOnClick
-                    rtl={false}
-                    pauseOnFocusLoss
-                    draggable
-                    pauseOnHover
-                    theme="light"
-                />
-                <div className="fixed top-0 left-0 w-full bg-white shadow-md z-40">
-                    <Header />
+        <div className="py-8">
+            <div className="container mx-auto p-4">
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-3xl font-bold">Quản lý banner</h1>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-primary text-white font-bold py-2 px-4 rounded"
+                    >
+                        + Thêm banner mới
+                    </button>
                 </div>
-                <div className="container mx-auto mt-20 p-4">
-                    <div className="flex justify-between items-center mb-6">
-                        <h1 className="text-3xl font-bold">Quản lý banner</h1>
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="bg-primary text-white font-bold py-2 px-4 rounded"
-                        >
-                            + Thêm banner mới
-                        </button>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {banners.map(banner => (
-                            <div key={banner.bannerId} className="bg-white rounded-lg shadow-md overflow-hidden">
-                                <img src={banner.imageUrl} alt="Banner" className="w-full h-48 object-cover" />
-                                <div className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <span className={`h-4 w-4 rounded-full mr-2 ${banner.status === BannerStatus.ACTIVE ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                            <select
-                                                value={banner.status}
-                                                onChange={(e) => handleStatusChange(banner.bannerId, e.target.value as BannerStatus)}
-                                                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-                                            >
-                                                <option value={BannerStatus.ACTIVE}>Hoạt động</option>
-                                                <option value={BannerStatus.INACTIVE}>Không hoạt động</option>
-                                            </select>
-                                        </div>
-                                        <button onClick={() => handleDeleteClick(banner.bannerId)} className="text-red-500 hover:text-red-700 font-semibold">Xóa</button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {banners.map(banner => (
+                        <div key={banner.bannerId} className="bg-white rounded-lg shadow-md overflow-hidden">
+                            <img src={banner.imageUrl} alt="Banner" className="w-full h-48 object-cover" />
+                            <div className="p-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <span className={`h-4 w-4 rounded-full mr-2 ${banner.status === BannerStatus.ACTIVE ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                        <select
+                                            value={banner.status}
+                                            onChange={(e) => handleStatusChange(banner.bannerId, e.target.value as BannerStatus)}
+                                            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+                                        >
+                                            <option value={BannerStatus.ACTIVE}>Hoạt động</option>
+                                            <option value={BannerStatus.INACTIVE}>Không hoạt động</option>
+                                        </select>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-2">Ngày tạo: {new Date(banner.createdAt).toLocaleDateString('vi-VN')}</p>
+                                    <button onClick={() => handleDeleteClick(banner.bannerId)} className="text-red-500 hover:text-red-700 font-semibold">Xóa</button>
                                 </div>
+                                <p className="text-xs text-gray-500 mt-2">Ngày tạo: {new Date(banner.createdAt).toLocaleDateString('vi-VN')}</p>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    ))}
                 </div>
             </div>
 
@@ -311,7 +290,7 @@ const BannerManager = () => {
                     </div>
                 </div>
             )}
-        </>
+        </div>
     );
 };
 

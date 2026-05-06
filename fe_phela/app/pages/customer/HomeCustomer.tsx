@@ -24,7 +24,7 @@ const Home = () => {
         const fetchBanners = async () => {
             try {
                 const data: Banner[] = await getLatestActiveBanners();
-                setBanners(data.filter(banner => banner.imageUrl)); 
+                setBanners(data.filter(banner => banner.imageUrl));
             } catch (error) {
                 console.error("Failed to fetch banners:", error);
             } finally {
@@ -52,16 +52,16 @@ const Home = () => {
         <div className="min-h-screen bg-[#FCF8F1]">
             <Header />
             <ChatWidget />
-            
+
             {/* Hero Slider Section - Full Height */}
             <div className="relative w-full h-[90vh] overflow-hidden bg-black">
                 <AnimatePresence mode="wait">
                     {loading ? (
-                        <motion.div 
+                        <motion.div
                             key="loading"
                             className="absolute inset-0 flex items-center justify-center bg-black"
                         >
-                             <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
                         </motion.div>
                     ) : currentBanner ? (
                         <motion.div
@@ -73,20 +73,20 @@ const Home = () => {
                             className="absolute inset-0 bg-cover bg-center scale-105"
                             style={{ backgroundImage: `url(${currentBanner.imageUrl})` }}
                         >
-                             {/* Minimalist Dark Overlay */}
+                            {/* Minimalist Dark Overlay */}
                             <div className="absolute inset-0 bg-black/40" />
                         </motion.div>
                     ) : null}
                 </AnimatePresence>
-                
+
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-10 px-4">
                     <ScrollReveal>
                         <h1 className="text-white text-6xl md:text-9xl font-black tracking-[-0.05em] mb-4 uppercase italic drop-shadow-2xl">
-                             Phê La
+                            Phê La
                         </h1>
                         <div className="h-0.5 w-16 bg-[#D2B48C] mx-auto mb-6"></div>
                         <p className="text-white/80 text-[10px] md:text-xs tracking-[1em] font-black uppercase drop-shadow-lg ml-[1em]">
-                             Nốt Hương Đặc Sản
+                            Nốt Hương Đặc Sản
                         </p>
                     </ScrollReveal>
                 </div>
@@ -111,7 +111,7 @@ const Home = () => {
                                 <p className="text-white/60 text-sm font-medium max-w-md mb-8">
                                     Nhận ngay những mã giảm giá đặc biệt để trải nghiệm những nốt hương trà đặc sản tinh túy nhất.
                                 </p>
-                                <button 
+                                <button
                                     onClick={() => navigate('/khuyen-mai')}
                                     className="bg-[#FCF8F1] text-[#2C1E16] px-8 py-4 rounded-full font-black text-xs uppercase tracking-widest hover:bg-[#8C5A35] hover:text-white transition-all duration-300 shadow-xl shadow-black/20"
                                 >
@@ -136,7 +136,7 @@ const Home = () => {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 {/* Second overlapping card */}
                                 <div className="hidden lg:block absolute -bottom-6 -right-6 bg-white p-1 rounded-2xl shadow-xl -rotate-6 group-hover:rotate-0 transition-transform duration-700 delay-75">
                                     <div className="border-2 border-dashed border-[#2C1E16]/10 rounded-xl p-3 flex gap-3 bg-[#FCF8F1]">
@@ -154,20 +154,20 @@ const Home = () => {
                     </ScrollReveal>
                 </div>
             </div>
-            
+
             {/* Main Feature Section: PHÊ LA & NHỮNG ĐIỀU KHÁC BIỆT */}
             <div className="max-w-7xl mx-auto px-6 py-40">
                 <ScrollReveal>
                     <div className="text-center mb-32">
                         <h2 className="text-4xl md:text-6xl font-black text-black mb-8 uppercase tracking-tighter leading-none">Phê La <span className="text-[#D2B48C]">&</span> Những Điều Khác Biệt</h2>
                         <div className="flex justify-center items-center gap-4">
-                             <div className="h-px w-12 bg-black/10"></div>
-                             <span className="text-[10px] font-black uppercase tracking-[0.5em] text-black/30">Since 2024</span>
-                             <div className="h-px w-12 bg-black/10"></div>
+                            <div className="h-px w-12 bg-black/10"></div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.5em] text-black/30">Since 2024</span>
+                            <div className="h-px w-12 bg-black/10"></div>
                         </div>
                     </div>
                 </ScrollReveal>
-                
+
                 {/* Story Block 1 */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-20 items-center mb-40">
                     <div className="lg:col-span-5 space-y-12">
@@ -179,21 +179,21 @@ const Home = () => {
                             <p className="text-black/40 text-sm leading-loose uppercase tracking-widest font-bold">
                                 Chúng tôi sẵn sàng viết tiếp câu chuyện Đánh thức những nốt hương đặc sản của nông sản Việt Nam vươn ra thế giới.
                             </p>
-                            <Link 
-                                to="/product" 
+                            <Link
+                                to="/san-pham"
                                 className="inline-block bg-[#D2B48C] text-white px-12 py-5 rounded-sm font-black text-[10px] tracking-[0.3em] uppercase hover:bg-black transition-all shadow-xl shadow-[#D2B48C]/20 hover:-translate-y-1"
                             >
                                 Khám phá ngay
                             </Link>
                         </ScrollReveal>
                     </div>
-                    
+
                     <div className="lg:col-span-7">
                         <ScrollReveal delay={0.4}>
                             <div className="relative aspect-[4/3] overflow-hidden shadow-2xl">
-                                <img 
-                                    src={home} 
-                                    alt="Phê La" 
+                                <img
+                                    src={home}
+                                    alt="Phê La"
                                     className="w-full h-full object-cover grayscale-[30%] hover:grayscale-0 transition-all duration-1000 scale-105 hover:scale-100"
                                 />
                                 <div className="absolute inset-0 border-[20px] border-white/10 pointer-events-none"></div>
@@ -207,9 +207,9 @@ const Home = () => {
                     <div className="lg:col-span-7 order-2 lg:order-1">
                         <ScrollReveal>
                             <div className="aspect-video bg-black overflow-hidden shadow-2xl relative">
-                                <img 
-                                    src="https://phela.vn/wp-content/uploads/2021/08/DSC09515.jpg" 
-                                    alt="Cắm trại Phê La" 
+                                <img
+                                    src="https://phela.vn/wp-content/uploads/2021/08/DSC09515.jpg"
+                                    alt="Cắm trại Phê La"
                                     className="w-full h-full object-cover brightness-75 hover:brightness-100 transition-all duration-1000"
                                 />
                                 <div className="absolute bottom-8 left-8 text-white">
@@ -224,8 +224,8 @@ const Home = () => {
                             <p className="text-black/60 leading-relaxed text-lg font-bold">
                                 Phê La đi theo concept Cắm Trại - phong cách khác biệt độc đáo, là nơi bạn được giải toả áp lực, được thư giãn và được ‘chill’ cùng không gian thưởng thức mộc mạc nhất.
                             </p>
-                            <Link 
-                                to="/different-style" 
+                            <Link
+                                to="/different-style"
                                 className="inline-block border-b-2 border-[#D2B48C] text-black pb-2 font-black text-[10px] tracking-[0.3em] uppercase hover:text-[#D2B48C] transition-all"
                             >
                                 Tìm hiểu phong cách
@@ -237,10 +237,10 @@ const Home = () => {
 
             {/* Subtle Tagline Section */}
             <div className="w-full py-40 bg-white text-center">
-                 <ScrollReveal>
+                <ScrollReveal>
                     <span className="text-[#D2B48C] text-[10px] font-black uppercase tracking-[1em] mb-8 block">Authentic Experience</span>
                     <h4 className="text-4xl md:text-6xl font-light italic text-black/10 uppercase tracking-tighter">Phê La • Tự hào nông sản Việt</h4>
-                 </ScrollReveal>
+                </ScrollReveal>
             </div>
 
             <Footer />

@@ -2,16 +2,8 @@ package com.example.be_phela.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.*;
-import lombok.*;
-import lombok.experimental.FieldDefaults;
-
 import java.time.LocalDate;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@FieldDefaults(level = AccessLevel.PRIVATE)
 public class AdminUpdateDTO {
     @NotNull(message = "Tên nhân viên không được để trống")
     @NotBlank(message = "Tên nhân viên không được chứa toàn khoảng trắng")
@@ -34,4 +26,30 @@ public class AdminUpdateDTO {
 
     @NotBlank(message = "Giới tính không được để trống")
     private String gender;
+
+    public AdminUpdateDTO() {}
+
+    public AdminUpdateDTO(String fullname, LocalDate dob, String email, String phone, String gender) {
+        this.fullname = fullname;
+        this.dob = dob;
+        this.email = email;
+        this.phone = phone;
+        this.gender = gender;
+    }
+
+    // Getters and Setters
+    public String getFullname() { return fullname; }
+    public void setFullname(String fullname) { this.fullname = fullname; }
+
+    public LocalDate getDob() { return dob; }
+    public void setDob(LocalDate dob) { this.dob = dob; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
 }

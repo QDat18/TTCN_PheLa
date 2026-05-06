@@ -4,6 +4,7 @@ import com.example.be_phela.dto.request.CustomerCreateDTO;
 import com.example.be_phela.dto.request.CustomerLocationUpdateDTO;
 import com.example.be_phela.dto.request.CustomerPasswordUpdateDTO;
 import com.example.be_phela.dto.request.CustomerUpdateDTO;
+import com.example.be_phela.dto.response.CustomerCancelledCountProjection;
 import com.example.be_phela.dto.response.CustomerResponseDTO;
 import com.example.be_phela.dto.response.PointHistoryResponseDTO;
 import com.example.be_phela.exception.DuplicateResourceException;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -50,6 +52,7 @@ public class CustomerService implements ICustomerService {
         this.cartService = cartService;
     }
 
+    @Override
     public String generateCustomerCode() {
         long count = customerRepository.count();
         return String.format("KH%06d", count + 1);
@@ -84,8 +87,25 @@ public class CustomerService implements ICustomerService {
 
     @Override
     public Page<CustomerResponseDTO> getAllCustomers(Pageable pageable) {
-        return customerRepository.findAll(pageable)
-                .map(this::mapCustomerToDtoWithCancelCount);
+        Pageable safePageable = pageable != null ? pageable : Pageable.unpaged();
+        Page<Customer> customersPage = customerRepository.findAll(safePageable);
+        List<String> customerIds = customersPage.getContent().stream()
+                .map(Customer::getCustomerId)
+                .collect(Collectors.toList());
+
+        // Batch fetch cancelled counts for the current page only
+        Map<String, Long> cancelledCountsMap = customerRepository.findCancelledCountsForCustomerIds(customerIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        CustomerCancelledCountProjection::getCustomerId,
+                        CustomerCancelledCountProjection::getCancelledCount
+                ));
+
+        return customersPage.map(customer -> {
+            CustomerResponseDTO dto = customerMapper.toCustomerResponseDTO(customer);
+            dto.setOrderCancelCount(cancelledCountsMap.getOrDefault(customer.getCustomerId(), 0L).intValue());
+            return dto;
+        });
     }
 
     @Override
@@ -96,6 +116,7 @@ public class CustomerService implements ICustomerService {
     }
 
     @Transactional
+    @Override
     public CustomerResponseDTO updateCustomerInfo(String username, CustomerUpdateDTO customerUpdateDTO) {
         Customer customer = customerRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with username: " + username));

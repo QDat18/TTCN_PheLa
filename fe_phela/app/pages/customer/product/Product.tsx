@@ -92,18 +92,29 @@ const Product = () => {
             const product = await getPublicProductById(productId);
             const customerId = user.customerId;
             const cart = await getCustomerCart(customerId);
+            
             if (cart.cartId) {
+                // Pick default size: priority PHÊ -> VỪA -> first available
+                const sizes = product.sizes || [];
+                const defaultSize = sizes.find((s: any) => s.sizeName?.toUpperCase() === 'PHÊ') || 
+                                    sizes.find((s: any) => s.sizeName?.toUpperCase() === 'VỪA') || 
+                                    sizes.find((s: any) => s.sizeName?.toUpperCase() === 'REGULAR') ||
+                                    (sizes.length > 0 ? sizes[0] : null);
+
                 const cartItemDTO = {
                     productId: product.productId,
+                    productSizeId: defaultSize?.productSizeId || null,
                     quantity: 1,
-                    amount: product.originalPrice * 1,
+                    amount: (defaultSize?.price || product.originalPrice || 0),
                     note: ''
                 };
+                
                 await addItemToCart(cart.cartId, cartItemDTO);
                 window.dispatchEvent(new Event('cartUpdated'));
-                toast.success('Đã thêm sản phẩm vào túi');
+                toast.success(`Đã thêm ${product.productName} (${defaultSize?.sizeName || 'Standard'}) vào túi`);
             }
         } catch (err) {
+            console.error('Add to cart error:', err);
             toast.error('Có lỗi xảy ra, vui lòng thử lại');
         }
     };

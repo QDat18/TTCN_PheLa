@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '~/components/admin/Header';
 import api from '~/config/axios';
 import { toast } from 'react-toastify';
 import { useAuth } from '~/AuthContext';
@@ -219,13 +218,8 @@ const Staff = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      <div className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-        <Header />
-      </div>
-      
-      <div className="container mx-auto px-4 pt-24 pb-8">
+    <div className="py-8">
+      <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Quản lý nhân viên</h1>

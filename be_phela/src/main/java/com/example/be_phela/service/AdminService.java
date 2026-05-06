@@ -16,10 +16,8 @@ import com.example.be_phela.repository.AdminRepository;
 import com.example.be_phela.repository.BranchRepository;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -29,16 +27,24 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AdminService implements IAdminService {
+    private static final Logger log = LoggerFactory.getLogger(AdminService.class);
 
-    AdminRepository adminRepository;
-    BranchRepository branchRepository;
-    BCryptPasswordEncoder passwordEncoder;
-    AdminMapper adminMapper;
+    private final AdminRepository adminRepository;
+    private final BranchRepository branchRepository;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final AdminMapper adminMapper;
+
+    public AdminService(AdminRepository adminRepository,
+                        BranchRepository branchRepository,
+                        BCryptPasswordEncoder passwordEncoder,
+                        AdminMapper adminMapper) {
+        this.adminRepository = adminRepository;
+        this.branchRepository = branchRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.adminMapper = adminMapper;
+    }
 
     @Override
     public String generateEmployCode() {
@@ -95,16 +101,6 @@ public class AdminService implements IAdminService {
         log.info("Updating admin info with username: {}", username);
         Admin adminToUpdate = adminRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found with username: " + username));
-
-//        // Kiểm tra quyền: người dùng có thể tự cập nhật thông tin của chính họ
-//        // Nếu không phải chính họ, chỉ Super Admin mới được phép cập nhật
-//        if (!currentUsername.equals(username)) {
-//            Admin currentAdmin = adminRepository.findByUsername(currentUsername)
-//                    .orElseThrow(() -> new ResourceNotFoundException("Current admin not found with username: " + currentUsername));
-//            if (!currentAdmin.getRole().equals(Roles.SUPER_ADMIN)) {
-//                throw new SecurityException("You can only update your own information unless you are a Super Admin");
-//            }
-//        }
 
         // Kiểm tra email trùng lặp
         if (!adminToUpdate.getEmail().equals(adminDTO.getEmail()) && adminRepository.existsByEmail(adminDTO.getEmail())) {

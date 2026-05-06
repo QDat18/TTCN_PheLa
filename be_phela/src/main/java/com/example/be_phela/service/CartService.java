@@ -65,7 +65,7 @@ public class CartService implements ICartService {
         }
 
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new RuntimeException("Customer not found with id: " + customerId));
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Customer not found. Vui lòng đăng nhập lại hoặc chạy SQL đồng bộ Data. ID: " + customerId));
 
         Address defaultAddress = addressRepository.findByCustomer_CustomerIdAndIsDefaultTrue(customerId)
                 .orElse(null);
@@ -120,7 +120,7 @@ public class CartService implements ICartService {
                 .orElseGet(() -> {
                     log.info("Cart not found for customer {}. Creating a new one.", customerId);
                     Customer customer = customerRepository.findById(customerId)
-                            .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + customerId));
+                            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Customer not found. Vui lòng đăng nhập lại hoặc chạy SQL đồng bộ Data. ID: " + customerId));
                     Cart newCart = Cart.builder()
                             .customer(customer)
                             .totalAmount(0.0)

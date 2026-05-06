@@ -5,8 +5,10 @@ export const getOrderById = async (orderId: string) => {
     return response.data;
 };
 
-export const getOrdersByCustomerId = async (customerId: string) => {
-    const response = await api.get(`/api/order/customer/${customerId}`);
+export const getOrdersByCustomerId = async (customerId: string, page = 0, size = 10, sort = 'createdAt,desc') => {
+    const response = await api.get(`/api/order/customer/${customerId}`, {
+        params: { page, size, sort }
+    });
     return response.data;
 };
 

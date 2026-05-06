@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import Header from '~/components/admin/Header';
 import api from '~/config/axios';
 import { Link } from 'react-router-dom';
 import { useAuth } from '~/AuthContext'; 
@@ -129,9 +128,8 @@ const Order = () => {
   }, [orders]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="p-6 max-w-7xl mx-auto">
+    <div className="py-8">
+      <div className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Quản lý Đơn hàng</h1>
         </div>

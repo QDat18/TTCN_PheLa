@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '~/components/admin/Header';
 import { toast } from 'react-toastify';
 import { useAuth } from '~/AuthContext';
 import { FiSearch, FiEdit2, FiTrash2, FiPlus, FiChevronLeft, FiChevronRight, FiX, FiLock } from 'react-icons/fi';
@@ -164,12 +163,8 @@ const Category = () => {
   }
 
   return (
-    <div className="relative min-h-screen bg-gray-50">
-      <div className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-        <Header />
-      </div>
-
-      <div className="container mx-auto px-4 py-20 sm:px-6 lg:px-8">
+    <div className="py-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Quản lý Danh mục Sản phẩm</h1>
           <button

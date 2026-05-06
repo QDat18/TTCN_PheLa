@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '~/components/admin/Header';
 import { toast } from 'react-toastify';
 import { getVouchers, createVoucher, updateVoucher, deleteVoucher } from '~/services/voucherService';
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaTicketAlt, FaTimes } from 'react-icons/fa';
@@ -121,10 +120,8 @@ const VoucherManager = () => {
     );
 
     return (
-        <div className="flex flex-col h-screen bg-[#FCF8F1]">
-            <Header />
-            <main className="flex-1 overflow-y-auto p-4 lg:p-8 mt-4">
-                <div className="max-w-7xl mx-auto">
+        <div className="py-8">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                         <div>
                             <h1 className="text-3xl font-black text-[#2C1E16] uppercase tracking-tighter flex items-center gap-3">
@@ -229,7 +226,6 @@ const VoucherManager = () => {
                         </div>
                     )}
                 </div>
-            </main>
 
             {/* Modal Create/Edit */}
             {isModalOpen && (

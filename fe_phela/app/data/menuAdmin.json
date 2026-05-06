@@ -27,6 +27,7 @@
           "link": "/admin/doanh-thu",
           "subMenu": [
             { "title": "Doanh thu", "link": "/admin/doanh-thu" },
+            { "title": "Chi nhánh", "link": "/admin/bao-cao-chi-nhanh" },
             { "title": "Đơn hàng", "link": "/admin/bao-cao-don-hang" }
           ]
         },
@@ -75,6 +76,10 @@
             {
               "title": "Quản lý banner",
               "link": "/admin/banner"
+            },
+            {
+              "title": "Quản lý AI",
+              "link": "/admin/ai-management"
             }
           ]
         },

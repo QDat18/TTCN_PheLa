@@ -8,7 +8,6 @@ import com.example.be_phela.repository.AdminRepository;
 import com.example.be_phela.repository.ChatMessageRepository;
 import com.example.be_phela.repository.CustomerRepository;
 import com.example.be_phela.service.FileStorageService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -29,7 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Controller
-@RequiredArgsConstructor
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
@@ -37,6 +35,21 @@ public class ChatController {
     private final CustomerRepository customerRepository;
     private final AdminRepository adminRepository;
     private final FileStorageService fileStorageService;
+    private final com.example.be_phela.service.NotificationService notificationService;
+
+    public ChatController(SimpMessagingTemplate messagingTemplate,
+                          ChatMessageRepository chatMessageRepository,
+                          CustomerRepository customerRepository,
+                          AdminRepository adminRepository,
+                          FileStorageService fileStorageService,
+                          com.example.be_phela.service.NotificationService notificationService) {
+        this.messagingTemplate = messagingTemplate;
+        this.chatMessageRepository = chatMessageRepository;
+        this.customerRepository = customerRepository;
+        this.adminRepository = adminRepository;
+        this.fileStorageService = fileStorageService;
+        this.notificationService = notificationService;
+    }
 
     @PostMapping("/api/chat/uploadImage")
     public ResponseEntity<String> uploadChatImage(@RequestParam("file") MultipartFile file) {
@@ -86,6 +99,17 @@ public class ChatController {
         // 3. Gửi tin nhắn vào phòng chat đó
         // Cả khách hàng và admin đang lắng nghe topic này sẽ nhận được tin nhắn
         messagingTemplate.convertAndSend(conversationTopic, chatMessage);
+
+        // 4. Nếu người nhận là ADMIN, tạo thông báo cho Admin
+        if ("ADMIN".equals(chatMessage.getRecipientId())) {
+            notificationService.createNotification(
+                    chatMessage.getSenderId(),
+                    chatMessage.getSenderName(),
+                    "ADMIN",
+                    "Bạn có tin nhắn mới từ " + chatMessage.getSenderName() + ": " + chatMessage.getContent(),
+                    com.example.be_phela.model.enums.NotificationType.CUSTOMER_MESSAGE
+            );
+        }
     }
 
     /**

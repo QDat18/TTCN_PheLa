@@ -56,7 +56,8 @@ public class FileStorageService {
             System.out.println("--- CLOUDINARY DEBUG: File: " + file.getOriginalFilename() + " (" + file.getSize() + " bytes)");
 
             Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
-                    "folder", fullPath
+                    "folder", fullPath,
+                    "resource_type", "auto"
             ));
 
             System.out.println("--- CLOUDINARY DEBUG: Result: " + uploadResult);

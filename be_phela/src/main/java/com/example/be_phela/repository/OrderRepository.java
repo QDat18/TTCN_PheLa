@@ -3,6 +3,8 @@ package com.example.be_phela.repository;
 import com.example.be_phela.model.Order;
 import com.example.be_phela.model.enums.OrderStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -24,9 +26,14 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     
     Optional<Order> findByOrderCode(String orderCode);
     boolean existsByOrderCode(String orderCode);
+    List<Order> findByOrderCodeContainingIgnoreCase(String orderCode);
 
     // Tìm các đơn hàng theo một trạng thái cụ thể
-    List<Order> findByStatus(OrderStatus status);
+    @Query("SELECT o FROM orders o WHERE o.status = :status")
+    Page<Order> findByStatus(@Param("status") OrderStatus status, Pageable pageable);
+
+    @Query("SELECT o FROM orders o WHERE o.customer.customerId = :customerId")
+    Page<Order> findOrdersByCustomerId(@Param("customerId") String customerId, Pageable pageable);
 
     // Đếm tổng số đơn hàng của một khách hàng theo trạng thái
     long countByCustomer_CustomerIdAndStatus(String customerId, OrderStatus status);
@@ -55,4 +62,14 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("status") OrderStatus status,
             @Param("since") LocalDateTime since
     );
+
+    // Thống kê doanh thu theo chi nhánh trong một khoảng thời gian
+    @Query("SELECT b.branchCode, b.branchName, SUM(o.finalAmount), COUNT(o) " +
+            "FROM orders o LEFT JOIN o.branch b " +
+            "WHERE o.status = :status AND o.orderDate BETWEEN :startDate AND :endDate " +
+            "GROUP BY b.branchCode, b.branchName")
+    List<Object[]> findRevenueByBranchInDateRange(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("status") OrderStatus status);
 }

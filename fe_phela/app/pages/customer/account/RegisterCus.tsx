@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { registerCustomer } from '~/services/authServices';
+import { supabase } from "~/utils/supabaseClient";
 import { FiEye, FiEyeOff, FiUser, FiMail, FiLock, FiPhone, FiInfo } from "react-icons/fi";
 import { FaFacebookF, FaGoogle } from "react-icons/fa";
 
@@ -25,12 +25,25 @@ const Register = () => {
 
         setLoading(true);
         try {
-            const { confirmPassword, ...payload } = formData;
-            await registerCustomer(payload);
+            const { data, error } = await supabase.auth.signUp({
+                email: formData.email,
+                password: formData.password,
+                options: {
+                    data: {
+                        username: formData.username,
+                        fullname: formData.fullname,
+                        phone: formData.phone,
+                        gender: formData.gender,
+                    }
+                }
+            });
+
+            if (error) throw error;
+            
             toast.success("Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.");
             setTimeout(() => { window.location.reload(); }, 3000);
         } catch (err: any) {
-            toast.error(err.response?.data?.message || err.message || "Đăng ký thất bại!");
+            toast.error(err.message || "Đăng ký thất bại!");
         } finally { setLoading(false); }
     };
 
@@ -117,7 +130,10 @@ const Register = () => {
                 <div className="grid grid-cols-2 gap-3">
                     <button
                         type="button"
-                        onClick={() => window.location.href = "http://localhost:8081/oauth2/authorization/google"}
+                        onClick={async () => {
+                            const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+                            if (error) toast.error("Không thể kết nối Google: " + error.message);
+                        }}
                         className="flex items-center justify-center gap-2 py-2 border border-gray-200 rounded-xl hover:bg-orange-50 hover:border-orange-100 hover:text-orange-600 transition-all text-sm font-bold text-gray-600"
                     >
                         <FaGoogle className="text-red-500 text-base" /> Google

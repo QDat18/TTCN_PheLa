@@ -6,7 +6,6 @@ import com.example.be_phela.dto.response.*;
 import com.example.be_phela.interService.IOrderService;
 import com.example.be_phela.model.*;
 import com.example.be_phela.model.enums.OrderStatus;
-import com.example.be_phela.model.enums.PaymentMethod;
 import com.example.be_phela.model.enums.PaymentStatus;
 import com.example.be_phela.model.enums.MembershipTier;
 import com.example.be_phela.model.enums.PointType;
@@ -16,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService implements IOrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+    private static final int MAX_PAGE_SIZE = 50;
 
     private final OrderRepository orderRepository;
     private final CartRepository cartRepository;
@@ -113,10 +116,11 @@ public class OrderService implements IOrderService {
         // Point Redemption Logic
         Integer notesUsed = orderCreateDTO.getNotesUsed() != null ? orderCreateDTO.getNotesUsed() : 0;
         if (notesUsed > 0) {
-            if (customer.getCurrentNotes() < notesUsed) {
+            int currentNotes = customer.getCurrentNotes() != null ? customer.getCurrentNotes() : 0;
+            if (currentNotes < notesUsed) {
                 throw new RuntimeException("Insufficient notes balance");
             }
-            customer.setCurrentNotes(customer.getCurrentNotes() - notesUsed);
+            customer.setCurrentNotes(currentNotes - notesUsed);
             customerRepository.save(customer);
 
             // Record REDEEM history
@@ -188,12 +192,10 @@ public class OrderService implements IOrderService {
     }
 
     @Override
-    public List<OrderResponseDTO> getOrdersByCustomerId(String customerId) {
-        return orderRepository.findAll().stream()
-                .filter(o -> o.getCustomer().getCustomerId().equals(customerId))
-                .sorted((o1, o2) -> o2.getCreatedAt().compareTo(o1.getCreatedAt()))
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+    public Page<OrderResponseDTO> getOrdersByCustomerId(String customerId, Pageable pageable) {
+        Pageable cappedPageable = capPageable(pageable);
+        return orderRepository.findOrdersByCustomerId(customerId, cappedPageable)
+                .map(this::mapToResponseDTO);
     }
 
     @Override
@@ -220,7 +222,8 @@ public class OrderService implements IOrderService {
         // Point Refund Logic
         if (order.getNotesUsed() != null && order.getNotesUsed() > 0) {
             Customer customer = order.getCustomer();
-            customer.setCurrentNotes(customer.getCurrentNotes() + order.getNotesUsed());
+            int currentNotes = customer.getCurrentNotes() != null ? customer.getCurrentNotes() : 0;
+            customer.setCurrentNotes(currentNotes + order.getNotesUsed());
             customerRepository.save(customer);
 
             PointHistory refundHistory = PointHistory.builder()
@@ -239,14 +242,12 @@ public class OrderService implements IOrderService {
 
     @Override
     public Optional<Order> getOrderByCode(String orderCode) {
-        return orderRepository.findAll().stream()
-                .filter(o -> o.getOrderCode().equals(orderCode))
-                .findFirst();
+        return orderRepository.findByOrderCode(orderCode);
     }
 
     @Override
     public Optional<Order> getOrderByCodeWithLock(String orderCode) {
-        return getOrderByCode(orderCode); 
+        return orderRepository.findByOrderCodeWithLock(orderCode);
     }
 
     @Override
@@ -259,7 +260,8 @@ public class OrderService implements IOrderService {
         // Point Refund Logic
         if (order.getNotesUsed() != null && order.getNotesUsed() > 0) {
             Customer customer = order.getCustomer();
-            customer.setCurrentNotes(customer.getCurrentNotes() + order.getNotesUsed());
+            int currentNotes = customer.getCurrentNotes() != null ? customer.getCurrentNotes() : 0;
+            customer.setCurrentNotes(currentNotes + order.getNotesUsed());
             customerRepository.save(customer);
 
             PointHistory refundHistory = PointHistory.builder()
@@ -291,7 +293,8 @@ public class OrderService implements IOrderService {
         } else if (status == OrderStatus.CANCELLED) {
             if (order.getNotesUsed() != null && order.getNotesUsed() > 0) {
                 Customer customer = order.getCustomer();
-                customer.setCurrentNotes(customer.getCurrentNotes() + order.getNotesUsed());
+                int currentNotes = customer.getCurrentNotes() != null ? customer.getCurrentNotes() : 0;
+                customer.setCurrentNotes(currentNotes + order.getNotesUsed());
                 customerRepository.save(customer);
 
                 PointHistory refundHistory = PointHistory.builder()
@@ -315,8 +318,11 @@ public class OrderService implements IOrderService {
             int earnedPoints = (int) (order.getFinalAmount() / 10000); // 1 Nốt nhạc cho mỗi 10,000 VND
             if (earnedPoints > 0) {
                 Customer customer = order.getCustomer();
-                customer.setCurrentNotes(customer.getCurrentNotes() + earnedPoints);
-                customer.setTotalAccumulatedNotes(customer.getTotalAccumulatedNotes() + earnedPoints);
+                int currentNotes = customer.getCurrentNotes() != null ? customer.getCurrentNotes() : 0;
+                int totalNotes = customer.getTotalAccumulatedNotes() != null ? customer.getTotalAccumulatedNotes() : 0;
+                
+                customer.setCurrentNotes(currentNotes + earnedPoints);
+                customer.setTotalAccumulatedNotes(totalNotes + earnedPoints);
                 
                 // Cập nhật hạng thành viên
                 updateMembershipTier(customer);
@@ -360,11 +366,18 @@ public class OrderService implements IOrderService {
     }
 
     @Override
-    public List<OrderResponseDTO> getOrdersByStatus(OrderStatus status) {
-        return orderRepository.findAll().stream()
-                .filter(o -> o.getStatus() == status)
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+    public Page<OrderResponseDTO> getOrdersByStatus(OrderStatus status, Pageable pageable) {
+        Pageable cappedPageable = capPageable(pageable);
+        return orderRepository.findByStatus(status, cappedPageable)
+                .map(this::mapToResponseDTO);
+    }
+
+    private Pageable capPageable(Pageable pageable) {
+        if (pageable.getPageSize() > MAX_PAGE_SIZE) {
+            log.warn("Requested page size {} exceeds limit, capping to {}", pageable.getPageSize(), MAX_PAGE_SIZE);
+            return PageRequest.of(pageable.getPageNumber(), MAX_PAGE_SIZE, pageable.getSort());
+        }
+        return pageable;
     }
 
     @Override
@@ -463,7 +476,7 @@ public class OrderService implements IOrderService {
     }
 
     private void updateMembershipTier(Customer customer) {
-        int total = customer.getTotalAccumulatedNotes();
+        int total = customer.getTotalAccumulatedNotes() != null ? customer.getTotalAccumulatedNotes() : 0;
         if (total >= 5000) {
             customer.setMembershipTier(MembershipTier.DIAMOND);
         } else if (total >= 2000) {

@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Header from '~/components/customer/Header';
+import Footer from '~/components/customer/Footer';
 import { Link } from 'react-router-dom';
 import { getPublicJobPostings, getApplicationCount } from '~/services/jobService';
+import { motion } from 'framer-motion';
+import { FiBriefcase, FiMapPin, FiClock, FiDollarSign } from 'react-icons/fi';
 
 interface JobPosting {
   jobPostingId: string;
@@ -29,8 +32,6 @@ const Recruitment: React.FC = () => {
     const fetchJobs = async () => {
       try {
         const jobsData = await getPublicJobPostings();
-
-        // Add application count to each job
         const jobsWithCount = await Promise.all(
           jobsData.map(async (job: JobPosting) => {
             try {
@@ -41,11 +42,9 @@ const Recruitment: React.FC = () => {
             }
           })
         );
-
         setJobs(jobsWithCount);
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching jobs:', err);
         setError('Không thể tải danh sách tin tuyển dụng. Vui lòng thử lại sau.');
         setLoading(false);
       }
@@ -53,44 +52,24 @@ const Recruitment: React.FC = () => {
     fetchJobs();
   }, []);
 
- const formatDate = (dateString: string) => {
-    // Kiểm tra xem chuỗi có phải là định dạng YYYY-MM-DD không
+  const formatDate = (dateString: string) => {
     if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-       // Nếu là định dạng đầy đủ (có giờ phút), dùng cách cũ an toàn hơn
-       const date = new Date(dateString);
-       return date.toLocaleDateString('vi-VN', {
-         day: '2-digit',
-         month: '2-digit',
-         year: 'numeric',
-       });
+      const date = new Date(dateString);
+      return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
-
-    // Nếu là YYYY-MM-DD, xử lý thủ công để tránh lỗi timezone
-    const parts = dateString.split('-');
-    const year = parts[0];
-    const month = parts[1];
-    const day = parts[2];
+    const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#FCF8F1]">
         <Header />
-        <div className="container mx-auto px-4 py-8 flex justify-center items-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="container mx-auto px-4 py-8">
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 max-w-3xl mx-auto" role="alert">
-            <p>{error}</p>
+        <div className="pt-40 px-6 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse bg-white rounded-[40px] h-64 shadow-sm border border-[#E5D5C5]/30"></div>
+            ))}
           </div>
         </div>
       </div>
@@ -98,83 +77,122 @@ const Recruitment: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#FCF8F1] selection:bg-[#8C5A35] selection:text-white">
       <Header />
-      <div className="container mx-auto px-4 py-12">
-        {/* Hero Section */}
-        <div className="bg-gradient-to-r from-amber-900 to-amber-700 rounded-xl p-8 mb-12 text-white">
-          <h1 className="text-4xl font-bold mb-4">Tuyển dụng</h1>
-          <p className="text-lg max-w-3xl">
-            Chúng tôi luôn tìm kiếm những tài năng mới để gia nhập đội ngũ. Nếu bạn đam mê công việc và muốn phát triển trong môi trường chuyên nghiệp, hãy khám phá các cơ hội dưới đây.
-          </p>
-        </div>
 
-        {/* Job Listings */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-6 pb-2 border-b-2 border-amber-200 inline-block">
-            Vị trí đang tuyển dụng
-          </h2>
+      {/* Hero Section - Deep Coffee */}
+      <div className="relative bg-[#1A120B] pt-48 pb-36 overflow-hidden">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#8C5A35] opacity-5 blur-[120px] rounded-full -mr-64 -mt-64"></div>
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#E2B13C] opacity-5 blur-[100px] rounded-full -ml-32 -mb-32"></div>
+
+        <div className="max-w-7xl mx-auto px-6 relative z-10 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+          >
+            <span className="text-[#E2B13C] text-xs font-black uppercase tracking-[0.4em] mb-6 block italic">Join Our Team</span>
+            <h1 className="text-5xl md:text-7xl font-black !text-[#FDF5E6] leading-none mb-8">
+              Tuyển <span className="italic font-serif text-[#E2B13C] font-normal">Dụng</span>
+            </h1>
+            <div className="flex flex-col items-center gap-6">
+              <p className="text-[#FDF5E6]/60 text-sm md:text-base max-w-xl font-medium leading-relaxed italic">
+                Chúng tôi luôn tìm kiếm những tâm hồn đồng điệu để cùng nhau viết tiếp hành trình kết nối đam mê và lan tỏa những giá trị nguyên bản.
+              </p>
+              <div className="h-1 w-12 bg-[#E2B13C]"></div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-24">
+        {/* Job Listings Grid */}
+        <div className="mb-16">
+          <div className="flex items-center gap-4 mb-12">
+            <h2 className="text-3xl font-black text-[#1A120B] uppercase tracking-tighter italic">Cơ hội nghề nghiệp</h2>
+            <div className="flex-1 h-px bg-[#E5D5C5]/50"></div>
+            <div className="px-4 py-1.5 bg-[#8C5A35] rounded-full">
+               <span className="text-white text-[10px] font-black uppercase tracking-widest">{jobs.length} Vị trí</span>
+            </div>
+          </div>
           
           {jobs.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {jobs.map((job) => (
-                <div
+              {jobs.map((job, index) => (
+                <motion.div
                   key={job.jobPostingId}
-                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 border-l-4 border-primary"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="group relative bg-white rounded-[40px] p-8 shadow-sm hover:shadow-2xl hover:shadow-[#1A120B]/5 transition-all duration-500 border border-[#E5D5C5]/30 hover:-translate-y-2 overflow-hidden"
                 >
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="text-xl font-bold text-gray-800">{job.title}</h3>
-                      <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded">
-                        {job.branchName}
-                      </span>
+                  {/* Decorative corner accent */}
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#FDF5E6] rounded-bl-[60px] -mr-8 -mt-8 transition-colors group-hover:bg-[#E2B13C]/10"></div>
+                  
+                  <div className="relative z-10 flex flex-col h-full">
+                    <div className="mb-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="px-3 py-1 bg-[#FDF5E6] text-[#8C5A35] text-[9px] font-black uppercase tracking-widest rounded-full border border-[#E5D5C5]/50">
+                          {job.branchName}
+                        </span>
+                      </div>
+                      <h3 className="text-2xl font-black text-[#1A120B] leading-tight mb-2 group-hover:text-[#8C5A35] transition-colors">{job.title}</h3>
+                      <p className="text-[#8C5A35] text-[10px] font-black uppercase tracking-[0.2em]">{job.jobCode}</p>
                     </div>
-                    
-                    <div className="space-y-3 mb-4">
-                      <div className="flex items-center text-gray-600">
-                        <svg className="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>{job.salaryRange}</span>
+
+                    <div className="space-y-4 mb-10 flex-grow">
+                      <div className="flex items-center text-gray-500 text-sm font-medium">
+                        <div className="w-8 h-8 rounded-full bg-[#FCF8F1] flex items-center justify-center mr-3 group-hover:bg-[#8C5A35] group-hover:text-white transition-colors">
+                          <FiDollarSign size={14} />
+                        </div>
+                        <span className="group-hover:text-[#1A120B] transition-colors">{job.salaryRange}</span>
                       </div>
-                      <div className="flex items-center text-gray-600">
-                        <svg className="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        <span>{job.experienceLevel}</span>
+                      <div className="flex items-center text-gray-500 text-sm font-medium">
+                        <div className="w-8 h-8 rounded-full bg-[#FCF8F1] flex items-center justify-center mr-3 group-hover:bg-[#8C5A35] group-hover:text-white transition-colors">
+                          <FiBriefcase size={14} />
+                        </div>
+                        <span className="group-hover:text-[#1A120B] transition-colors">{job.experienceLevel}</span>
                       </div>
-                      <div className="flex items-center text-gray-600">
-                        <svg className="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
+                      <div className="flex items-center text-gray-400 text-xs font-medium">
+                        <div className="w-8 h-8 rounded-full bg-[#FCF8F1] flex items-center justify-center mr-3">
+                          <FiClock size={12} />
+                        </div>
                         <span>Hạn nộp: {formatDate(job.deadline)}</span>
                       </div>
                     </div>
-                    
+
                     <Link
                       to={`/tuyen-dung/${job.jobPostingId}`}
-                      className="w-full inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-lg transition-colors duration-300 font-medium"
+                      className="w-full h-12 inline-flex items-center justify-center bg-[#1A120B] text-[#FDF5E6] rounded-2xl group-hover:bg-[#8C5A35] transition-all duration-300 text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-[#1A120B]/10 group-hover:shadow-[#8C5A35]/20"
                     >
-                      Xem chi tiết
-                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      Khám phá ngay
+                      <svg className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7-7 7" />
                       </svg>
                     </Link>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           ) : (
-            <div className="bg-white rounded-xl p-8 text-center shadow-sm max-w-2xl mx-auto">
-              <svg className="w-16 h-16 mx-auto text-primary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <h3 className="text-xl font-medium text-gray-700 mb-2">Hiện không có vị trí nào đang tuyển dụng</h3>
-              <p className="text-gray-500">Vui lòng quay lại sau để xem các cơ hội mới từ chúng tôi</p>
+            <div className="bg-white rounded-[60px] p-24 text-center border border-[#E5D5C5]/50 shadow-sm relative overflow-hidden">
+               <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-[#FCF8F1]/50 to-transparent"></div>
+               <div className="relative z-10">
+                <div className="w-24 h-24 bg-[#FDF5E6] rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
+                  <FiBriefcase className="text-[#8C5A35] opacity-30" size={32} />
+                </div>
+                <h3 className="text-3xl font-black text-[#1A120B] mb-4 uppercase tracking-tighter italic">Đội ngũ Phê La hiện đã đủ quân số</h3>
+                <p className="text-gray-400 font-medium max-w-sm mx-auto leading-relaxed italic">
+                  Vui lòng quay lại sau để không bỏ lỡ các cơ hội gia nhập hành trình kết nối những tâm hồn đồng âm.
+                </p>
+                <div className="mt-12 h-px w-24 bg-[#E2B13C] mx-auto"></div>
+              </div>
             </div>
           )}
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

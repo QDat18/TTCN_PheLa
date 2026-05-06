@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import HeadOrder from '~/components/customer/HeadOrder';
 import api from '~/config/axios';
 import { useAuth } from '~/AuthContext';
-import { FaMapMarkerAlt, FaEdit, FaTrash, FaStar, FaRegStar, FaSearchLocation } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaEdit, FaTrash, FaStar, FaRegStar, FaSearchLocation, FaHome, FaBriefcase, FaEllipsisV, FaCheckCircle } from 'react-icons/fa';
 import type { Province as ProvinceDTO, District as DistrictDTO, Ward as WardDTO } from '~/services/locationService';
 import { getLocationHierarchy } from '~/services/locationService';
 
@@ -63,18 +63,79 @@ const DeliveryAddress = () => {
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [goongError, setGoongError] = useState('');
+  const [biasLocation, setBiasLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const isFetchingRef = useRef(false);
+
+  useEffect(() => {
+    if (!showForm) {
+      setBiasLocation(null);
+      return;
+    }
+
+    // Hybrid Strategy: Fresh GPS -> Saved Backend Location
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setBiasLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn("GPS access denied or failed, using backend fallback...", error);
+          if (user && 'latitude' in user && user.latitude && user.longitude) {
+            setBiasLocation({
+              lat: user.latitude as number,
+              lng: user.longitude as number
+            });
+          }
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 300000 }
+      );
+    } else if (user && 'latitude' in user && user.latitude && user.longitude) {
+      setBiasLocation({
+        lat: user.latitude as number,
+        lng: user.longitude as number
+      });
+    }
+  }, [showForm, user]);
 
   const normalizeVietnamese = (value?: string) =>
     value ? value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
 
+  const stripPrefixes = (s: string) => {
+    // Remove common Vietnamese administrative prefixes
+    // Using regex with unicode normalization considered
+    return s.replace(/^(t\wnh|th\wnh ph\u1ed1|tp\.?|qu\u1eadn|huy\u1ec7n|ph\u01b0\u1eddng|x\u00e3|th\u1ecb tr\u1ea5n|th\u1ecb x\u00e3|h\u00e0 n\u1ed9i|h\u1ed3 ch\u00ed minh)\s+/gi, '').trim();
+  };
+
   const isNameMatch = (candidate?: string, expected?: string) => {
     if (!candidate || !expected) return false;
+    
+    // 1. Basic normalization (accents, lowercase)
     const normalizedCandidate = normalizeVietnamese(candidate);
     const normalizedExpected = normalizeVietnamese(expected);
+    
+    // 2. Exact match check
+    if (normalizedCandidate === normalizedExpected) return true;
+    
+    // 3. Strip prefixes and check again
+    const strippedCandidate = stripPrefixes(normalizedCandidate);
+    const strippedExpected = stripPrefixes(normalizedExpected);
+    
+    if (strippedCandidate === strippedExpected && strippedCandidate.length > 0) return true;
+
+    // 4. Special check for numbered districts (e.g. "Quận 1")
+    // If it's a number, we must match exactly to avoid "12" matching "1"
+    const isNumberOnly = /^\d+$/.test(strippedExpected);
+    if (isNumberOnly) {
+       return strippedCandidate === strippedExpected;
+    }
+
+    // 5. Containment check (only for non-numbers)
     return (
-      normalizedCandidate === normalizedExpected ||
-      normalizedCandidate.includes(normalizedExpected) ||
-      normalizedExpected.includes(normalizedCandidate)
+      (strippedCandidate.length > 2 && strippedExpected.includes(strippedCandidate)) ||
+      (strippedExpected.length > 2 && strippedCandidate.includes(strippedExpected))
     );
   };
 
@@ -98,17 +159,41 @@ const DeliveryAddress = () => {
       setSelectedProvinceCode(matchedProvince.code);
     }
 
-    const matchedDistrict = matchedProvince.districts?.find((district) =>
+    let matchedDistrict = matchedProvince.districts?.find((district) =>
       isNameMatch(district.name, address.district)
     );
 
     let matchedWard: WardDTO | undefined;
 
+    // Fallback: If district not found by name, try to find it via Ward match or search detailedAddress
+    if (!matchedDistrict && address.ward) {
+       // Search all districts in this province for this ward
+       for (const district of matchedProvince.districts || []) {
+         const ward = district.wards?.find(w => isNameMatch(w.name, address.ward));
+         if (ward) {
+           matchedDistrict = district;
+           matchedWard = ward;
+           break;
+         }
+       }
+    }
+
+    // Still no district? Try to see if any district name is in the detailedAddress
+    if (!matchedDistrict && address.detailedAddress) {
+       matchedDistrict = matchedProvince.districts?.find(district => 
+         isNameMatch(address.detailedAddress, district.name)
+       );
+    }
+
     if (matchedDistrict) {
       if (selectedDistrictCode !== matchedDistrict.code) {
         setSelectedDistrictCode(matchedDistrict.code);
       }
-      matchedWard = matchedDistrict.wards?.find((ward) => isNameMatch(ward.name, address.ward));
+      
+      if (!matchedWard) {
+        matchedWard = matchedDistrict.wards?.find((ward) => isNameMatch(ward.name, address.ward));
+      }
+
       if (matchedWard) {
         if (selectedWardCode !== matchedWard.code) {
           setSelectedWardCode(matchedWard.code);
@@ -170,16 +255,18 @@ const DeliveryAddress = () => {
   }, [selectedDistrict]);
 
   const useLocationDropdowns = locationHierarchy.length > 0;
-  const canUseGoong = Boolean(goongApiKey);
+  // Check if it's a real key or just the placeholder/missing
+  const canUseGoong = Boolean(goongApiKey && !goongApiKey.startsWith('Kzxxxx') && goongApiKey.length > 10);
 
   useEffect(() => {
-    if (user && user.type === 'customer' && user.customerId) {
+    const customerId = (user as any)?.customerId;
+    if (customerId && !isFetchingRef.current) {
       fetchAddresses();
     }
-  }, [user]);
+  }, [(user as any)?.customerId]);
 
   useEffect(() => {
-    if (!goongApiKey || !showForm) {
+    if (!showForm) {
       return;
     }
 
@@ -196,40 +283,69 @@ const DeliveryAddress = () => {
       try {
         setIsLoadingSuggestions(true);
         setGoongError('');
-        const response = await fetch(
-          `https://rsapi.goong.io/place/autocomplete?api_key=${goongApiKey}&input=${encodeURIComponent(trimmed)}`,
-          { signal: controller.signal }
-        );
 
-        if (!response.ok) {
-          throw new Error(`Autocomplete request failed with status ${response.status}`);
+        if (canUseGoong) {
+          // Normal Goong Strategy
+          const biasQuery = biasLocation ? `&location=${biasLocation.lat},${biasLocation.lng}` : '';
+          const response = await fetch(
+            `https://rsapi.goong.io/place/autocomplete?api_key=${goongApiKey}&input=${encodeURIComponent(trimmed)}${biasQuery}`,
+            { signal: controller.signal }
+          );
+
+          if (!response.ok) throw new Error(`Goong failed`);
+          const data = await response.json();
+          const predictions: GoongPrediction[] = data?.predictions ?? [];
+          setGoongSuggestions(predictions);
+          setShowSuggestionList(predictions.length > 0);
+        } else {
+          // Fallback Strategy: Nominatim (Keyless)
+          // We use viewbox to bias results around current location
+          let biasParams = '';
+          if (biasLocation) {
+             const offset = 0.1; // ~10km bias
+             biasParams = `&viewbox=${biasLocation.lng - offset},${biasLocation.lat + offset},${biasLocation.lng + offset},${biasLocation.lat - offset}&bounded=0`;
+          }
+          
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(trimmed)}&addressdetails=1&limit=5&countrycodes=vn${biasParams}`,
+            { signal: controller.signal }
+          );
+
+          if (!response.ok) throw new Error(`Nominatim failed`);
+          const data = await response.json();
+          
+          // Map Nominatim results to Goong interface format
+          const mapped: GoongPrediction[] = data.map((item: any) => ({
+            description: item.display_name,
+            place_id: `osm-${item.place_id}`, // Prefix to distinguish from Goong
+            structured_formatting: {
+              main_text: item.name || item.display_name.split(',')[0],
+              secondary_text: item.display_name.split(',').slice(1).join(',').trim()
+            },
+            // Store raw details to avoid another API call
+            _raw: item 
+          }));
+          
+          setGoongSuggestions(mapped);
+          setShowSuggestionList(mapped.length > 0);
         }
-
-        const data = await response.json();
-        const predictions: GoongPrediction[] = data?.predictions ?? [];
-        setGoongSuggestions(predictions);
-        setShowSuggestionList(predictions.length > 0);
       } catch (err) {
-        if (controller.signal.aborted) {
-          return;
-        }
-        console.error('Error fetching Goong autocomplete:', err);
+        if (controller.signal.aborted) return;
+        console.error('Autocomplete error:', err);
         setGoongSuggestions([]);
         setShowSuggestionList(false);
-        setGoongError('Không thể gợi ý địa chỉ. Vui lòng thử lại.');
+        if (canUseGoong) setGoongError('Gợi ý Goong lỗi, đang dùng hệ thống dự phòng...');
       } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingSuggestions(false);
-        }
+        if (!controller.signal.aborted) setIsLoadingSuggestions(false);
       }
-    }, 300);
+    }, 400);
 
     return () => {
       controller.abort();
       clearTimeout(timeoutId);
       setIsLoadingSuggestions(false);
     };
-  }, [searchQuery, goongApiKey, showForm]);
+  }, [searchQuery, goongApiKey, showForm, canUseGoong, biasLocation]);
 
   useEffect(() => {
     const loadLocations = async () => {
@@ -292,15 +408,23 @@ const DeliveryAddress = () => {
   }, [showForm]);
 
   const fetchAddresses = async () => {
-    if (!user || user.type !== 'customer') return;
+    if (isFetchingRef.current) return;
+    
+    const customerId = (user as any)?.customerId;
+    if (!customerId) return;
+
     try {
-      const response = await api.get(`/api/address/customer/${user.customerId}`);
+      isFetchingRef.current = true;
+      setLoading(true);
+      const response = await api.get(`/api/address/customer/${customerId}`);
       setAddresses(response.data);
-      setLoading(false);
+      setError('');
     } catch (err) {
       console.error('Error fetching addresses:', err);
-      setError('Không thể tải danh sách địa chỉ. Vui lòng thử lại sau.');
+      setError('Không thể tải danh sách địa chỉ.');
+    } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
@@ -321,12 +445,33 @@ const DeliveryAddress = () => {
   };
 
   const handleSelectSuggestion = async (suggestion: GoongPrediction) => {
-    if (!goongApiKey) return;
-
     setShowSuggestionList(false);
     setGoongSuggestions([]);
     setSearchQuery(suggestion.description);
 
+    // If it's a Nominatim fallback result, we already have details in _raw
+    if (suggestion.place_id.startsWith('osm-')) {
+      const item = (suggestion as any)._raw;
+      const lat = parseFloat(item.lat);
+      const lng = parseFloat(item.lon);
+      const addr = item.address || {};
+      
+      const updatedAddress: Partial<Address> = {
+        ...currentAddress,
+        city: addr.province || addr.city || addr.state || '',
+        district: addr.district || addr.county || addr.city_district || addr.suburb || '',
+        ward: addr.ward || addr.suburb || addr.quarter || addr.village || '',
+        detailedAddress: item.display_name,
+        latitude: lat,
+        longitude: lng,
+      };
+      
+      setCurrentAddress(updatedAddress);
+      setAddressToPrefill(updatedAddress);
+      return;
+    }
+
+    if (!goongApiKey) return;
     try {
       setIsSearchingLocation(true);
       setGoongError('');
@@ -826,12 +971,10 @@ const DeliveryAddress = () => {
                         onChange={(e) => {
                           const value = e.target.value;
                           setSearchQuery(value);
-                          if (canUseGoong) {
-                            setShowSuggestionList(true);
-                          }
+                          setShowSuggestionList(true);
                         }}
                         onFocus={() => {
-                          if (canUseGoong && goongSuggestions.length > 0) {
+                          if (goongSuggestions.length > 0) {
                             setShowSuggestionList(true);
                           }
                         }}
@@ -841,30 +984,43 @@ const DeliveryAddress = () => {
                         placeholder={canUseGoong ? 'Nhập địa chỉ hoặc địa danh, hệ thống gợi ý tự động' : 'Nhập địa chỉ để tìm kiếm'}
                         className="w-full p-2 border rounded"
                       />
-                      {canUseGoong && showSuggestionList && goongSuggestions.length > 0 && (
-                        <ul className="absolute z-20 mt-1 w-full rounded border border-gray-200 bg-white shadow max-h-52 overflow-y-auto">
-                          {goongSuggestions.map((suggestion) => (
-                            <li
-                              key={suggestion.place_id}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                void handleSelectSuggestion(suggestion);
-                              }}
-                              className="cursor-pointer px-3 py-2 hover:bg-gray-100"
-                            >
-                              <p className="font-medium text-sm text-gray-900">
-                                {suggestion.structured_formatting?.main_text || suggestion.description}
-                              </p>
-                              {suggestion.structured_formatting?.secondary_text && (
-                                <p className="text-xs text-gray-500">
-                                  {suggestion.structured_formatting.secondary_text}
-                                </p>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
+                      {showSuggestionList && goongSuggestions.length > 0 && (
+                        <div className="absolute z-20 mt-1 w-full rounded border border-gray-200 bg-white shadow max-h-72 overflow-y-auto">
+                          {biasLocation && (
+                             <div className="px-3 py-1.5 bg-[#FDF5E6] border-b border-[#E5D5C5]/30 flex items-center gap-2">
+                               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                               <span className="text-[10px] font-bold text-[#8C5A35] uppercase tracking-wider">Gợi ý gần bạn</span>
+                             </div>
+                          )}
+                          <ul className="divide-y divide-gray-100">
+                            {goongSuggestions.map((suggestion) => (
+                              <li
+                                key={suggestion.place_id}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  void handleSelectSuggestion(suggestion);
+                                }}
+                                className="cursor-pointer px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="flex items-start gap-2">
+                                  <FaMapMarkerAlt className="text-gray-400 mt-1 flex-shrink-0" />
+                                  <div>
+                                    <p className="font-semibold text-sm text-gray-900 leading-tight">
+                                      {suggestion.structured_formatting?.main_text || suggestion.description}
+                                    </p>
+                                    {suggestion.structured_formatting?.secondary_text && (
+                                      <p className="text-xs text-gray-500 mt-0.5">
+                                        {suggestion.structured_formatting.secondary_text}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       )}
-                      {canUseGoong && isLoadingSuggestions && (
+                      {showSuggestionList && isLoadingSuggestions && (
                         <span className="absolute right-3 top-3 text-xs text-gray-400">Đang gợi ý...</span>
                       )}
                     </div>
@@ -878,7 +1034,7 @@ const DeliveryAddress = () => {
                       {isSearchingLocation ? 'Đang tìm...' : 'Tìm'}
                     </button>
                   </div>
-                  {canUseGoong && goongError && (
+                  {(canUseGoong || !canUseGoong) && goongError && (
                     <p className="mb-2 text-sm text-red-500">{goongError}</p>
                   )}
 
@@ -893,32 +1049,25 @@ const DeliveryAddress = () => {
                     required
                   />
 
-                  {currentAddress.detailedAddress && (
-                    <>
-                      <div className="mb-2">
-                        <iframe
-                          src={mapUrl}
-                          width="100%"
-                          height="300"
-                          style={{ border: '1px solid #ccc', borderRadius: '4px' }}
-                          loading="lazy"
-                          title="Bản đồ địa chỉ"
-                        />
-                        {canUseGoong && currentAddress.latitude && currentAddress.longitude && (
-                          <p className="mt-2 text-xs text-gray-500">
-                            Bản đồ được cung cấp bởi Goong Maps.
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        <p>Tọa độ:
-                          <span className="font-mono ml-2">
-                            {currentAddress.latitude?.toFixed(6)}, {currentAddress.longitude?.toFixed(6)}
-                          </span>
-                        </p>
-                        <p className="mt-1">Kéo marker trên bản đồ để điều chỉnh vị trí chính xác</p>
-                      </div>
-                    </>
+                  {mapUrl && (
+                    <div className="mb-4 overflow-hidden rounded-xl border border-[#E5D5C5]/50 shadow-inner">
+                      <iframe
+                        src={mapUrl}
+                        width="100%"
+                        height="300"
+                        style={{ border: 'none' }}
+                        loading="lazy"
+                        title="Bản đồ địa chỉ"
+                      />
+                      {canUseGoong && currentAddress.latitude && currentAddress.longitude && (
+                        <div className="bg-[#fdfcfb] px-3 py-2 border-t border-[#E5D5C5]/30">
+                           <p className="text-[10px] text-[#8C5A35] font-medium flex items-center gap-1">
+                             <img src="https://goong.io/assets/images/logo.png" alt="Goong" className="h-3 inline" /> 
+                             Bản đồ được cung cấp bởi Goong Maps.
+                           </p>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center">
@@ -954,68 +1103,97 @@ const DeliveryAddress = () => {
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-6">
           {addresses.length === 0 ? (
-            <div className="text-center py-8 bg-white rounded-lg shadow">
-              <p className="text-gray-500">Bạn chưa có địa chỉ nào</p>
+            <div className="text-center py-20 bg-white/50 backdrop-blur-sm rounded-3xl border-2 border-dashed border-[#E5D5C5] flex flex-col items-center">
+              <div className="w-20 h-20 bg-[#FDF5E6] rounded-full flex items-center justify-center mb-4 text-[#8C5A35]/30">
+                <FaMapMarkerAlt size={40} />
+              </div>
+              <p className="text-[#8C5A35] font-bold text-lg">Bạn chưa có địa chỉ giao hàng nào</p>
+              <p className="text-[#8C5A35]/60 text-sm mt-1">Hãy thêm địa chỉ để Phê La có thể phục vụ bạn tốt hơn</p>
+              <button 
+                onClick={handleAddNewAddress}
+                className="mt-6 px-6 py-2.5 bg-[#8C5A35] text-white rounded-full font-bold text-sm hover:bg-[#5C4D43] transition-all shadow-lg shadow-[#8C5A35]/20"
+              >
+                + Thêm địa chỉ ngay
+              </button>
             </div>
           ) : (
             addresses.map((address) => (
               <div
                 key={address.addressId}
-                className={`bg-white p-4 rounded-lg shadow ${address.isDefault ? 'border-2 border-primary' : ''}`}
+                className={`group relative overflow-hidden bg-white rounded-2xl border transition-all duration-300 ${
+                  address.isDefault 
+                    ? 'border-[#B8860B] shadow-[0_10px_30px_rgba(184,134,11,0.1)] ring-1 ring-[#B8860B]/20' 
+                    : 'border-[#E5D5C5]/50 shadow-sm hover:shadow-xl hover:border-[#8C5A35]/30'
+                }`}
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-start">
-                    <FaMapMarkerAlt className="text-primary mt-1 mr-2" />
-                    <div>
-                      <div className="flex items-center">
-                        <h3 className="font-semibold">{address.recipientName}</h3>
+                {/* Background Pattern */}
+                <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-[#FDF5E6] rounded-full opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
+
+                <div className="relative p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex gap-4 items-start flex-1">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                      address.isDefault ? 'bg-[#B8860B] text-white' : 'bg-[#FDF5E6] text-[#8C5A35]'
+                    }`}>
+                      {address.detailedAddress.toLowerCase().includes('văn phòng') || address.detailedAddress.toLowerCase().includes('công ty') 
+                        ? <FaBriefcase size={22} /> 
+                        : <FaHome size={22} />
+                      }
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-black text-[#5C4D43] text-lg truncate uppercase tracking-tight">
+                          {address.recipientName}
+                        </h3>
                         {address.isDefault && (
-                          <span className="ml-2 px-2 py-1 bg-primary text-white text-xs rounded">
-                            Mặc định
+                          <span className="flex items-center gap-1 px-2.5 py-1 bg-[#B8860B]/10 text-[#B8860B] text-[10px] font-black rounded-full uppercase tracking-widest border border-[#B8860B]/20">
+                            <FaCheckCircle className="text-[12px]" /> Mặc định
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-600">{address.phone}</p>
-                      <p className="text-gray-800">
-                        {address.detailedAddress}, {address.ward}, {address.district}, {address.city}
+                      
+                      <div className="flex items-center gap-3 text-sm text-[#8C5A35]/80 mb-2">
+                        <span className="font-bold">{address.phone}</span>
+                        <span className="w-1 h-1 bg-[#E5D5C5] rounded-full"></span>
+                        <span className="font-medium opacity-80 italic">Giao hàng tận nơi</span>
+                      </div>
+
+                      <p className="text-[#5C4D43] text-sm leading-relaxed flex items-start gap-1.5 line-clamp-2">
+                        <FaMapMarkerAlt className="mt-1 text-[#8C5A35] flex-shrink-0" />
+                        <span>
+                          <span className="font-bold">{address.detailedAddress}</span>, {address.ward}, {address.district}, {address.city}
+                        </span>
                       </p>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleEdit(address)}
-                      className="text-blue-500 hover:text-blue-700 p-1"
-                      title="Chỉnh sửa"
-                    >
-                      <FaEdit />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(address.addressId)}
-                      className="text-red-500 hover:text-red-700 p-1"
-                      title="Xóa"
-                    >
-                      <FaTrash />
-                    </button>
+
+                  <div className="flex items-center gap-2 w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-[#E5D5C5]/30">
                     {!address.isDefault && (
                       <button
                         onClick={() => handleSetDefault(address.addressId)}
-                        className="text-yellow-500 hover:text-yellow-700 p-1"
-                        title="Đặt làm mặc định"
+                        className="flex-1 md:flex-none px-4 py-2 text-[#8C5A35] hover:bg-[#FDF5E6] rounded-xl text-xs font-bold transition-all border border-transparent hover:border-[#E5D5C5]"
                       >
-                        <FaRegStar />
+                        Đặt mặc định
                       </button>
                     )}
-                    {address.isDefault && (
-                      <button
-                        className="text-yellow-500 p-1"
-                        title="Địa chỉ mặc định"
-                        disabled
-                      >
-                        <FaStar />
-                      </button>
-                    )}
+                    
+                    <button
+                      onClick={() => handleEdit(address)}
+                      className="w-10 h-10 flex items-center justify-center text-[#5C4D43] hover:bg-[#FDF5E6] hover:text-[#8C5A35] rounded-xl transition-all"
+                      title="Chỉnh sửa"
+                    >
+                      <FaEdit size={18} />
+                    </button>
+                    
+                    <button
+                      onClick={() => handleDelete(address.addressId)}
+                      className="w-10 h-10 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all"
+                      title="Xóa"
+                    >
+                      <FaTrash size={18} />
+                    </button>
                   </div>
                 </div>
               </div>

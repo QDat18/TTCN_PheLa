@@ -5,13 +5,14 @@ import { FiEye, FiEyeOff, FiUser, FiLock, FiMail, FiCheckCircle, FiArrowRight } 
 import { useAuth } from "~/AuthContext";
 import { toast } from 'react-toastify';
 import api from '~/config/axios';
-import { sendOtpForCustomerPasswordReset, verifyOtpAndResetCustomerPassword, loginCustomer } from '~/services/authServices';
+import { supabase } from "~/utils/supabaseClient";
+import { sendOtpForCustomerPasswordReset, verifyOtpAndResetCustomerPassword } from '~/services/authServices';
 import { motion, AnimatePresence } from "framer-motion";
 
 const LoginCustomer = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -24,29 +25,45 @@ const LoginCustomer = () => {
     const [resetStage, setResetStage] = useState<'email' | 'otp' | 'success'>('email');
 
     const handleLogin = async () => {
-        if (!username || !password) { toast.error("Vui lòng nhập tài khoản và mật khẩu."); return; }
+        if (!email || !password) { toast.error("Vui lòng nhập email và mật khẩu."); return; }
         setLoading(true);
         try {
-            const response = await loginCustomer({ username, password });
-            login({
-                ...response.data,
-                type: 'customer'
-            } as any);
-            toast.success(`Chào mừng ${username}! Đang chuẩn bị...`);
-            navigate('/');
-            updateLocation();
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) throw error;
+
+            if (data.user && data.session) {
+                // Prepare mock response format that AuthContext expects
+                const userData = {
+                    jwtToken: data.session.access_token,
+                    username: data.user.email,
+                    role: 'CUSTOMER', // Mặc định role
+                    userId: data.user.id,
+                    customerId: data.user.id,
+                    type: 'customer'
+                };
+
+                login(userData as any);
+                toast.success(`Chào mừng! Đang chuẩn bị...`);
+                navigate('/');
+                updateLocation(data.user.id);
+            }
         } catch (err: any) {
-            toast.error(err.response?.data?.message || err.message || 'Tài khoản hoặc mật khẩu không đúng!');
+            toast.error(err.message || 'Tài khoản hoặc mật khẩu không đúng!');
+        } finally {
             setLoading(false);
         }
     };
 
-    const updateLocation = () => {
+    const updateLocation = (userId: string) => {
         if (!navigator.geolocation) return;
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 try {
-                    await api.patch(`/api/customer/updateLocation/${username}`, {
+                    await api.patch(`/api/customer/updateLocation/${userId}`, {
                         latitude: position.coords.latitude, longitude: position.coords.longitude
                     });
                 } catch (error) { }
@@ -100,8 +117,8 @@ const LoginCustomer = () => {
 
             <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
                 <div className={inputWrapper}>
-                    <FiUser className={iconClasses} />
-                    <input type="text" placeholder="Tên đăng nhập" className={inputClasses} value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+                    <FiMail className={iconClasses} />
+                    <input type="email" placeholder="Email đăng nhập" className={inputClasses} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
                 </div>
 
                 <div className={inputWrapper}>
@@ -140,7 +157,13 @@ const LoginCustomer = () => {
                 <div className="grid grid-cols-2 gap-3">
                     <button
                         type="button"
-                        onClick={() => window.location.href = "http://localhost:8081/oauth2/authorization/google"}
+                        onClick={async () => {
+                            const { error } = await supabase.auth.signInWithOAuth({
+                                provider: 'google',
+                                options: { redirectTo: window.location.origin }
+                            });
+                            if (error) toast.error("Không thể kết nối Google: " + error.message);
+                        }}
                         className="flex items-center justify-center gap-2 py-2.5 bg-[#2b1b12] border border-[#3d1d11] rounded-xl hover:bg-[#d48437]/10 hover:border-[#d48437]/50 transition-all text-sm font-bold text-white/80"
                     >
                         <FaGoogle className="text-red-500 text-base" /> Google

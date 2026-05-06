@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '~/components/admin/Header';
 import api from '~/config/axios';
 import { FaSearch, FaFilter, FaFileDownload, FaEnvelope, FaPhone, FaEye } from 'react-icons/fa';
 import { FiLock } from 'react-icons/fi';
@@ -214,13 +213,8 @@ const RecruitmentDetailJob = () => {
   }
 
   return (
-    <div>
-
-      <div className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-        <Header />
-      </div>
-
-      <div className="container mx-auto px-4 pt-20 pb-8">
+    <div className="py-8">
+      <div className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Danh sách ứng viên</h1>

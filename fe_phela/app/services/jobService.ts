@@ -81,7 +81,7 @@ export interface ApplicationRequestDTO {
 
 // PUBLIC ENDPOINTS - No authentication required
 export const getPublicJobPostings = async () => {
-  const response = await publicApi.get('/api/job-postings');
+  const response = await publicApi.get('/api/job-postings/active');
   return response.data;
 };
 

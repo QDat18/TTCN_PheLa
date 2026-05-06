@@ -1,8 +1,15 @@
 import api from '../config/axios';
 import axios from 'axios';
 
-// Get API base URL for public endpoints
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://phela-backend-dyl7.onrender.com';
+// Determine API Base URL
+const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  // Fallback for local development
+  if (import.meta.env.DEV) return 'http://localhost:8081';
+  return 'https://phela-backend-dyl7.onrender.com';
+};
+
+const API_BASE_URL = getBaseUrl();
 
 // Create a separate axios instance for public endpoints (no auth required)
 const publicApi = axios.create({
@@ -11,7 +18,7 @@ const publicApi = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Enable sending cookies and credentials
+  withCredentials: true,
 });
 
 // Interface cho dữ liệu đăng nhập
@@ -56,7 +63,7 @@ export interface LoginCredentials {
 // Đăng nhập cho Admin
 export const loginAdmin = async (credentials: LoginCredentials) => {
   try {
-    const response = await api.post('/auth/admin/login', credentials);
+    const response = await publicApi.post('/auth/admin/login', credentials);
     return response.data;
   } catch (error: any) {
     // Preserve the original error with backend details
@@ -67,7 +74,7 @@ export const loginAdmin = async (credentials: LoginCredentials) => {
 // Đăng nhập cho Customer
 export const loginCustomer = async (credentials: LoginCredentials) => {
   try {
-    const response = await api.post('/auth/customer/login', credentials);
+    const response = await publicApi.post('/auth/customer/login', credentials);
     return response.data;
   } catch (error: any) {
     // Preserve the original error with backend details

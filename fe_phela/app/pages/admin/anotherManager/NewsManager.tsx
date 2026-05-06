@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { getAllNews, deleteNews } from '~/services/newsService';
-import Header from '~/components/admin/Header';
 import Modal from '~/components/admin/Modal';
 import NewsForm from '~/components/admin/NewsForm';
 import { FiLock } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-toastify';
 import { useAuth } from '~/AuthContext';
 
 interface News {
@@ -120,27 +118,8 @@ const NewsManager = () => {
     );
   }
   return (
-    <>
-      <div>
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          toastClassName="border border-gray-200 shadow-lg"
-          progressClassName="bg-amber-500"
-          closeButton={false}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="light"
-        />
-        <div className="fixed top-0 left-0 w-full bg-white shadow-md z-40">
-          <Header />
-        </div>
-        <div className="container mx-auto mt-20 p-4">
+    <div className="py-8">
+      <div className="container mx-auto p-4">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">Quản lý tin tức</h1>
             <button
@@ -193,7 +172,6 @@ const NewsManager = () => {
               </tbody>
             </table>
           </div>
-        </div>
       </div>
 
       {/* Phần Modal */}
@@ -207,7 +185,7 @@ const NewsManager = () => {
           onSuccess={handleFormSuccess}
         />
       </Modal>
-    </>
+    </div>
   );
 };
 

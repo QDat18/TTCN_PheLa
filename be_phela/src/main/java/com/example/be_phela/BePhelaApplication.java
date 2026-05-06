@@ -29,6 +29,17 @@ public class BePhelaApplication {
             }
         });
 
+        // === CRITICAL DEBUG: Verify JWT_SIGNER_KEY is loaded correctly ===
+        String jwtKey = System.getProperty("JWT_SIGNER_KEY");
+        System.out.println("=== JWT_SIGNER_KEY DEBUG ===");
+        System.out.println("  From System.getProperty: " + (jwtKey != null ? "length=" + jwtKey.length() + ", prefix=" + jwtKey.substring(0, Math.min(10, jwtKey.length())) : "NULL!"));
+        String dotenvKey = dotenv.get("JWT_SIGNER_KEY");
+        System.out.println("  From dotenv.get:         " + (dotenvKey != null ? "length=" + dotenvKey.length() + ", prefix=" + dotenvKey.substring(0, Math.min(10, dotenvKey.length())) : "NULL!"));
+        System.out.println("  Contains '+': " + (jwtKey != null && jwtKey.contains("+")));
+        System.out.println("  Contains '/': " + (jwtKey != null && jwtKey.contains("/")));
+        System.out.println("  Ends with '==': " + (jwtKey != null && jwtKey.endsWith("==")));
+        System.out.println("============================");
+
         SpringApplication.run(BePhelaApplication.class, args);
     }
 

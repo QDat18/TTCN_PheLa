@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '~/components/admin/Header';
 import api from '~/config/axios';
 import {
   Chart as ChartJS,
@@ -339,7 +338,7 @@ const Revenue = () => {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-[500px]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-600"></div>
       </div>
     );
@@ -347,36 +346,33 @@ const Revenue = () => {
 
   if (unauthorized) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-            <FiLock className="h-6 w-6 text-red-600" />
+      <div className="py-8">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6 text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+              <FiLock className="h-6 w-6 text-red-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Truy cập bị từ chối</h2>
+            <p className="text-gray-600 mb-6">
+              Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên nếu bạn cần quyền truy cập.
+            </p>
+            <button
+              onClick={() => navigate('/admin/dashboard')}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#2C1E16] hover:bg-[#8C5A35] transition-colors"
+            >
+              Quay lại trang Dashboard
+            </button>
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Truy cập bị từ chối</h2>
-          <p className="text-gray-600 mb-6">
-            Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên nếu bạn cần quyền truy cập.
-          </p>
-          <button
-            onClick={() => navigate('/admin/dashboard')}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
-          >
-            Quay lại trang Dashboard
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen bg-gray-50">
-
-      <div className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-        <Header />
-      </div>
-      
-      <div className="container mx-auto px-4 py-20 sm:px-6 lg:px-8">
+    <div className="py-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Báo cáo Doanh thu</h1>
+          <h1 className="text-4xl font-bold text-gray-800">Báo cáo Doanh thu</h1>
 
           {/* Export Buttons */}
           {report && (
@@ -525,17 +521,17 @@ const Revenue = () => {
             <>
               {chartType === 'line' && (
                 <div className="h-96">
-                  <Line data={lineChartData} options={lineChartOptions as any} />
+                  <Line data={lineChartData as any} options={lineChartOptions as any} />
                 </div>
               )}
               {chartType === 'bar' && (
                 <div className="h-96">
-                  <Bar data={barChartData} options={barChartOptions as any} />
+                  <Bar data={barChartData as any} options={barChartOptions as any} />
                 </div>
               )}
               {chartType === 'combined' && (
                 <div className="h-96">
-                  <Bar data={combinedChartData} options={combinedChartOptions as any} />
+                  <Bar data={combinedChartData as any} options={combinedChartOptions as any} />
                 </div>
               )}
               {chartType === 'table' && (

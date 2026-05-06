@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import api from './config/axios';
+import { supabase } from './utils/supabaseClient';
 
 // Định nghĩa các Interface cho User
 export interface BaseUser {
   id: string;
   username: string;
+  fullname?: string;
   email: string;
   role: string;
   token?: string;
@@ -16,6 +18,9 @@ export interface CustomerUser extends BaseUser {
   pointUse: number;
   currentNotes: number;
   membershipTier: string;
+  gender?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface AdminUser extends BaseUser {
@@ -47,9 +52,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const storedUser = JSON.parse(storedUserRaw) as User;
       if (storedUser.type === 'customer' && storedUser.customerId) {
-        // Fetch fresh data from API
-        const response = await api.get(`/api/customer/getById/${storedUser.customerId}`);
-        const freshData = response.data;
+        // Fetch fresh data from API - use a direct axios call to avoid the 401 interceptor redirect
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8081'}/api/customer/getById/${storedUser.customerId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          console.warn(`refreshUser failed with status ${response.status}. Will not redirect.`);
+          return; // Silently fail - don't trigger redirect loop
+        }
+
+        const freshData = await response.json();
 
         // Merge with existing user (preserving token)
         const updatedUser = {
@@ -63,10 +80,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error('Failed to refresh user data:', error);
+      // DO NOT throw or redirect - this prevents the infinite loop
     }
   };
 
   useEffect(() => {
+    // 1. Lắng nghe trạng thái đăng nhập từ Supabase
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // console.log('--- SUPABASE DEBUG ---');
+      // console.log('Event:', event);
+      // console.log('Session is null?', !session);
+      // console.log('Current URL Hash:', window.location.hash);
+
+      if (session && session.user) {
+        // console.log('Logged in User:', session.user.email);
+        // Chỉ auto login supabase cho user ngoài trang admin
+        if (window.location.pathname.startsWith('/admin')) {
+          return;
+        }
+
+        const userData: CustomerUser = {
+          id: session.user.id,
+          customerId: session.user.id,
+          username: session.user.email || 'Google User',
+          email: session.user.email || '',
+          role: 'CUSTOMER',
+          type: 'customer',
+          token: session.access_token,
+          pointUse: 0,
+          currentNotes: 0,
+          membershipTier: 'MEMBER',
+          gender: 'OTHER'
+        };
+
+        const existingToken = localStorage.getItem('token');
+        if (existingToken !== session.access_token) {
+          localStorage.setItem('token', session.access_token);
+          localStorage.setItem('user', JSON.stringify(userData));
+          setUser(userData);
+
+          // Lấy thêm thông tin từ Backend
+          refreshUser();
+        }
+      } else if (event === 'SIGNED_OUT') {
+        // handleLogout();
+      }
+    });
+
     const initAuth = async () => {
       const storedToken = localStorage.getItem('token');
       const storedUserRaw = localStorage.getItem('user');
@@ -89,6 +149,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initAuth();
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const login = (userData: User) => {

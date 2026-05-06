@@ -162,12 +162,18 @@ const RecruitmentDetail: React.FC = () => {
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{job.title}</h1>
                 <p className="text-gray-600 mt-1">Mã tin: {job.jobCode}</p>
               </div>
-              <button
-                onClick={() => setShowApplicationForm(true)}
-                className="px-6 py-3 bg-[#d4a373] hover:bg-[#c19262] text-white font-medium rounded-lg transition-colors duration-300"
-              >
-                Ứng tuyển ngay
-              </button>
+              {job.status === 'OPEN' ? (
+                <button
+                  onClick={() => setShowApplicationForm(true)}
+                  className="px-6 py-3 bg-[#d4a373] hover:bg-[#c19262] text-white font-medium rounded-lg transition-colors duration-300"
+                >
+                  Ứng tuyển ngay
+                </button>
+              ) : (
+                <div className="px-6 py-3 bg-gray-400 text-white font-medium rounded-lg cursor-not-allowed">
+                  Đã hết hạn ứng tuyển
+                </div>
+              )}
             </div>
 
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -248,12 +254,18 @@ const RecruitmentDetail: React.FC = () => {
                 <li>Tải lên CV (PDF hoặc Word)</li>
                 <li>Nhấn "Nộp đơn" để hoàn tất</li>
               </ol>
-              <button
-                onClick={() => setShowApplicationForm(true)}
-                className="mt-4 w-full px-4 py-3 bg-[#d4a373] hover:bg-[#c19262] text-white font-medium rounded-lg transition-colors duration-300"
-              >
-                Ứng tuyển ngay
-              </button>
+              {job.status === 'OPEN' ? (
+                <button
+                  onClick={() => setShowApplicationForm(true)}
+                  className="mt-4 w-full px-4 py-3 bg-[#d4a373] hover:bg-[#c19262] text-white font-medium rounded-lg transition-colors duration-300"
+                >
+                  Ứng tuyển ngay
+                </button>
+              ) : (
+                <div className="mt-4 w-full px-4 py-3 bg-gray-200 text-gray-500 font-medium rounded-lg text-center cursor-not-allowed border border-gray-300">
+                  Đã đóng ứng tuyển
+                </div>
+              )}
             </div>
           </div>
         </div>

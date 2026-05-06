@@ -6,7 +6,9 @@ import com.example.be_phela.dto.response.OrderResponseDTO;
 import com.example.be_phela.model.Order;
 import com.example.be_phela.model.enums.OrderStatus;
 
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.Optional;
 
 public interface IOrderService {
@@ -16,10 +18,10 @@ public interface IOrderService {
     OrderResponseDTO getOrderById(String orderId);
     void cancelOrder(String orderId);
     void updateOrderStatus(String orderId, OrderStatus status, String username);
-    List<OrderResponseDTO> getOrdersByCustomerId(String customerId);
+    Page<OrderResponseDTO> getOrdersByCustomerId(String customerId, Pageable pageable);
     Optional<Order> getOrderByCode(String orderCode);
     Optional<Order> getOrderByCodeWithLock(String orderCode);
-    List<OrderResponseDTO> getOrdersByStatus(OrderStatus status);
+    Page<OrderResponseDTO> getOrdersByStatus(OrderStatus status, Pageable pageable);
     CustomerResponseDTO getCustomerByOrderId(String orderId);
     OrderResponseDTO confirmReceipt(String orderId);
 }

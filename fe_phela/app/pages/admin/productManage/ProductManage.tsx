@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '~/components/admin/Header';
 import api from '~/config/axios';
 import { toast } from 'react-toastify';
 import { useAuth } from '~/AuthContext';
@@ -266,7 +265,7 @@ const ProductManage = () => {
 
    if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-[500px]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-600"></div>
       </div>
     );
@@ -274,7 +273,7 @@ const ProductManage = () => {
 
   if (unauthorized) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+      <div className="flex flex-col items-center justify-center p-4 h-[500px]">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
             <FiLock className="h-6 w-6 text-red-600" />
@@ -295,13 +294,8 @@ const ProductManage = () => {
   }
 
   return (
-    <div className="relative min-h-screen bg-gray-50">
-
-      <div className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-        <Header />
-      </div>
-
-      <div className="container mx-auto px-4 py-20 sm:px-6 lg:px-8">
+    <div className="py-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Quản lý Sản phẩm</h1>
           <button

@@ -1,5 +1,6 @@
 package com.example.be_phela.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.UuidGenerator;
@@ -14,6 +15,7 @@ public class OrderItem {
     @Column(name = "id", nullable = false)
     private String orderItemId;
 
+    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;

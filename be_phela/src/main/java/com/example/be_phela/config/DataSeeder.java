@@ -1,4 +1,5 @@
 package com.example.be_phela.config;
+import com.example.be_phela.service.AiKnowledgeService;
 
 import com.example.be_phela.model.*;
 import com.example.be_phela.model.enums.*;
@@ -19,6 +20,7 @@ public class DataSeeder implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final VoucherRepository voucherRepository;
+    private final AiKnowledgeService aiKnowledgeService;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     public DataSeeder(AdminRepository adminRepository,
@@ -28,6 +30,7 @@ public class DataSeeder implements CommandLineRunner {
                       ProductRepository productRepository,
                       CategoryRepository categoryRepository,
                       VoucherRepository voucherRepository,
+                      AiKnowledgeService aiKnowledgeService,
                       org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.adminRepository = adminRepository;
         this.customerRepository = customerRepository;
@@ -36,6 +39,7 @@ public class DataSeeder implements CommandLineRunner {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.voucherRepository = voucherRepository;
+        this.aiKnowledgeService = aiKnowledgeService;
         this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -55,6 +59,21 @@ public class DataSeeder implements CommandLineRunner {
         seedCategories();
         seedProducts();
         seedVouchers();
+        seedAiKnowledge();
+    }
+
+    private void seedAiKnowledge() {
+        try {
+            Long count = jdbcTemplate.queryForObject("SELECT count(*) FROM phela_ai_embeddings", Long.class);
+            if (count == null || count == 0) {
+                System.out.println("AI Knowledge table is empty. Starting initial synchronization...");
+                aiKnowledgeService.syncKnowledgeBase();
+            } else {
+                System.out.println("AI Knowledge base already has " + count + " entries. Skipping auto-sync.");
+            }
+        } catch (Exception e) {
+            System.err.println("Could not check or seed AI Knowledge: " + e.getMessage());
+        }
     }
 
     private void seedBranches() {

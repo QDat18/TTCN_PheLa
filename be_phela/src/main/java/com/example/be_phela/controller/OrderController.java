@@ -5,12 +5,12 @@ import com.example.be_phela.dto.response.CustomerResponseDTO;
 import com.example.be_phela.dto.response.OrderResponseDTO;
 import com.example.be_phela.model.enums.OrderStatus;
 import com.example.be_phela.service.OrderService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/order")
@@ -52,15 +52,15 @@ public class OrderController {
     }
 
     @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<OrderResponseDTO>> getOrdersByCustomerId(@PathVariable String customerId) {
-        List<OrderResponseDTO> orders = orderService.getOrdersByCustomerId(customerId);
+    public ResponseEntity<Page<OrderResponseDTO>> getOrdersByCustomerId(@PathVariable String customerId, Pageable pageable) {
+        Page<OrderResponseDTO> orders = orderService.getOrdersByCustomerId(customerId, pageable);
         return ResponseEntity.ok(orders);
     }
 
     // Lấy đơn hàng theo trạng thái
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<OrderResponseDTO>> getOrdersByStatus(@PathVariable OrderStatus status) {
-        List<OrderResponseDTO> orders = orderService.getOrdersByStatus(status);
+    public ResponseEntity<Page<OrderResponseDTO>> getOrdersByStatus(@PathVariable OrderStatus status, Pageable pageable) {
+        Page<OrderResponseDTO> orders = orderService.getOrdersByStatus(status, pageable);
         return ResponseEntity.ok(orders);
     }
 

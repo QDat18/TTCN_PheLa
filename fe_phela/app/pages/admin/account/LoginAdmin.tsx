@@ -28,14 +28,31 @@ const LoginAdmin = () => {
             toast.error("Vui lòng nhập tài khoản và mật khẩu.");
             return;
         }
-        
+
         setLoading(true);
         try {
             const response = await loginAdminApi({ username, password });
+
+            // Backend trả về: { success, status, message, data: { token, username, fullname, role, ... } }
+            // Cần lấy phần "data" bên trong ApiResponse wrapper
+            const authData = response.data || response; // response.data là ApiResponse<AuthenticationResponse>
+
+            if (!authData || !authData.token) {
+                toast.error("Đăng nhập thất bại: Không nhận được token.");
+                return;
+            }
+
             login({
-                ...response.data,
+                id: authData.adminId || authData.id || '',
+                adminId: authData.adminId || authData.id || '',
+                username: authData.username || username,
+                fullname: authData.fullname || '',
+                email: authData.email || '',
+                role: authData.role || 'ADMIN',
+                token: authData.token,
                 type: 'admin'
-            } as any);
+            });
+
             toast.success('Đăng nhập thành công!');
             setTimeout(() => navigate('/admin/dashboard'), 1500);
         } catch (err: any) {
@@ -172,7 +189,7 @@ const LoginAdmin = () => {
                                     type="email"
                                     placeholder="Email của bạn"
                                     autoComplete="email"
-                                    className="p-2 mb-4 w-full rounded border max-w-sm" 
+                                    className="p-2 mb-4 w-full rounded border max-w-sm"
                                     value={forgotPasswordEmail}
                                     onChange={(e) => setForgotPasswordEmail(e.target.value)}
                                 />

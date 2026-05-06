@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import HeadOrder from '~/components/customer/HeadOrder';
 import api from '~/config/axios';
 import { useAuth } from '~/AuthContext';
@@ -58,6 +58,9 @@ const Cart = () => {
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  const cartIdRef = useRef<string | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchProductDetails = async (productId: string): Promise<Product> => {
     try {
@@ -87,6 +90,10 @@ const Cart = () => {
     try {
       const cartResponse = await api.get(`/api/customer/cart/getCustomer/${customerId}`);
       const cartData = cartResponse.data;
+      
+      if (cartData.cartId) {
+        cartIdRef.current = cartData.cartId;
+      }
 
       const itemsWithProducts = await fetchAllProducts(cartData.cartItems || []);
 
@@ -137,6 +144,22 @@ const Cart = () => {
         } finally {
           setLoading(false);
         }
+      } else {
+        // Guest mode basic handling to prevent infinite loading
+        try {
+          const guestCartStr = localStorage.getItem('guestCart');
+          if (guestCartStr) {
+              const parsed = JSON.parse(guestCartStr);
+              const itemsWithProducts = await fetchAllProducts(parsed);
+              setCartItems(itemsWithProducts);
+              const tAmount = itemsWithProducts.reduce((acc, item) => acc + ((item.product?.originalPrice || 0) * item.quantity), 0);
+              setTotalAmount(tAmount);
+              setFinalAmount(tAmount);
+          }
+          const branchResponse = await api.get('/api/branch');
+          setBranches(branchResponse.data);
+        } catch(e) {}
+        setLoading(false);
       }
     };
 
@@ -146,32 +169,70 @@ const Cart = () => {
 
   const updateQuantity = async (cartItemId: string, newQuantity: number) => {
     if (newQuantity < 0) return;
+    
+    // 1. Optimistic UI Update
+    setCartItems(prevItems => {
+        const updatedItems = prevItems.map(item => {
+            if (item.cartItemId === cartItemId) {
+                const unitPrice = item.amount / item.quantity;
+                return { 
+                    ...item, 
+                    quantity: newQuantity,
+                    amount: unitPrice * newQuantity 
+                };
+            }
+            return item;
+        });
+        
+        // Recalculate totals immediately
+        const newTotal = updatedItems.reduce((sum, item) => sum + item.amount, 0);
+        setTotalAmount(newTotal);
+        setFinalAmount(newTotal + shippingFee);
+        
+        return updatedItems;
+    });
+
     if (!user || user.type !== 'customer') return;
-    try {
-      const customerId = user.customerId;
-      const cartResponse = await api.get(`/api/customer/cart/getCustomer/${customerId}`);
-      const cartId = cartResponse.data.cartId;
 
-      const itemToUpdate = cartItems.find(item => item.cartItemId === cartItemId);
-      if (!itemToUpdate) return;
-
-      if (newQuantity === 0) {
-        await removeItem(cartItemId);
-        return;
-      }
-
-      await api.post(`/api/customer/cart/${cartId}/items`, {
-        productId: itemToUpdate.productId,
-        productSizeId: itemToUpdate.productSizeId,
-        toppingIds: itemToUpdate.selectedToppings?.map(t => t.productId) || [],
-        quantity: newQuantity,
-      });
-
-      await updateFullCartState(customerId);
-
-    } catch (err: any) {
-      toast.error(`Có lỗi: ${err.response?.data?.message || err.message}`);
+    // 2. Debounced API Call
+    if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
     }
+
+    debounceTimerRef.current = setTimeout(async () => {
+        try {
+            const customerId = user.customerId;
+            let cartId = cartIdRef.current;
+            
+            if (!cartId) {
+                const cartResponse = await api.get(`/api/customer/cart/getCustomer/${customerId}`);
+                cartId = cartResponse.data.cartId;
+                cartIdRef.current = cartId;
+            }
+
+            const itemToUpdate = cartItems.find(item => item.cartItemId === cartItemId);
+            if (!itemToUpdate) return;
+
+            if (newQuantity === 0) {
+                await removeItem(cartItemId);
+                return;
+            }
+
+            await api.post(`/api/customer/cart/${cartId}/items`, {
+                productId: itemToUpdate.productId,
+                productSizeId: itemToUpdate.productSizeId,
+                toppingIds: itemToUpdate.selectedToppings?.map(t => t.productId) || [],
+                quantity: newQuantity,
+            });
+
+            // Final sync to ensure everything is perfect
+            await updateFullCartState(customerId);
+
+        } catch (err: any) {
+            toast.error(`Lỗi đồng bộ: ${err.response?.data?.message || err.message}`);
+            if (user?.customerId) updateFullCartState(user.customerId);
+        }
+    }, 500); 
   };
 
   const updateBranch = async (branchCode: string) => {
@@ -505,7 +566,12 @@ const Cart = () => {
                 </div>
 
                 <Link
-                  to="/payment"
+                  to={user ? "/payment" : "/login-register"}
+                  onClick={(e) => {
+                    if (!user) {
+                      toast.info("Vui lòng đăng nhập để thực hiện thanh toán");
+                    }
+                  }}
                   className="w-full flex items-center justify-center gap-3 py-5 bg-[#2C1E16] text-white rounded-full font-black uppercase tracking-[0.2em] text-[11px] shadow-lg shadow-[#2C1E16]/10 hover:bg-[#8C5A35] hover:shadow-[#8C5A35]/30 hover:-translate-y-1 transition-all active:scale-[0.98]"
                 >
                   Đặt Hàng Ngay <FiChevronRight className="text-lg" />

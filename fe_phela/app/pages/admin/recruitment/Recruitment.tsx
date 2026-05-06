@@ -1,6 +1,5 @@
 // Recruitment.tsx (Admin)
 import React, { useState, useEffect } from 'react';
-import Header from '~/components/admin/Header';
 import api from '~/config/axios';
 import { FaEdit, FaTrash, FaPlus, FaSearch, FaFilter, FaTimes } from 'react-icons/fa';
 import { FiLock } from 'react-icons/fi';
@@ -212,7 +211,7 @@ const Recruitment = () => {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-[500px]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-600"></div>
       </div>
     );
@@ -220,7 +219,7 @@ const Recruitment = () => {
 
   if (unauthorized) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+      <div className="flex flex-col items-center justify-center p-4 h-[500px]">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
             <FiLock className="h-6 w-6 text-red-600" />
@@ -241,13 +240,8 @@ const Recruitment = () => {
   }
 
   return (
-    <div>
-
-      <div className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-        <Header />
-      </div>
-
-      <div className="container mx-auto px-4 pt-20 pb-8">
+    <div className="py-8">
+      <div className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Quản lý tin tuyển dụng</h1>
           <button

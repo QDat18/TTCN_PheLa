@@ -15,6 +15,8 @@ import { toastContainerConfig } from './utils/notificationConfig';
 import { AnimatePresence } from 'framer-motion';
 import GlobalLoading from './components/common/GlobalLoading';
 import PageTransition from './components/common/PageTransition';
+import AiConcierge from './components/customer/AiConcierge';
+import { isCustomerUser } from "./AuthContext";
 
 import type { Route } from "./+types/root";
 
@@ -22,6 +24,7 @@ import type { Route } from "./+types/root";
 import toastifyStyles from 'react-toastify/dist/ReactToastify.css?url';
 import appStyles from "./app.css?url";
 import headOrderStyles from "./assets/css/head_order.css?url";
+import aiConciergeStyles from "./components/customer/AiConcierge.css?url";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -37,6 +40,7 @@ export const links: Route.LinksFunction = () => [
   { rel: "stylesheet", href: toastifyStyles },
   { rel: "stylesheet", href: appStyles },
   { rel: "stylesheet", href: headOrderStyles },
+  { rel: "stylesheet", href: aiConciergeStyles },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -89,6 +93,7 @@ const AppWithAuth = () => {
           <Outlet />
         </PageTransition>
       </AnimatePresence>
+      {user && isCustomerUser(user) && <AiConcierge />}
     </>
   );
 };

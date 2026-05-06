@@ -1,5 +1,6 @@
 package com.example.be_phela.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.UuidGenerator;
 
@@ -10,6 +11,7 @@ public class ProductSize {
     @Column(name = "product_size_id", nullable = false, unique = true)
     private String productSizeId;
 
+    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;

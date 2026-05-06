@@ -9,24 +9,35 @@ import com.example.be_phela.model.enums.ApplicationStatus;
 import com.example.be_phela.model.enums.JobStatus;
 import com.example.be_phela.repository.ApplicationRepository;
 import com.example.be_phela.repository.JobPostingRepository;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ApplicationService implements IApplicationService {
 
-    JobPostingRepository jobPostingRepository;
-    ApplicationRepository applicationRepository;
-    CVStorageService cvStorageService;
+    private final JobPostingRepository jobPostingRepository;
+    private final ApplicationRepository applicationRepository;
+    private final CVStorageService cvStorageService;
+
+    public ApplicationService(JobPostingRepository jobPostingRepository,
+                              ApplicationRepository applicationRepository,
+                              CVStorageService cvStorageService) {
+        this.jobPostingRepository = jobPostingRepository;
+        this.applicationRepository = applicationRepository;
+        this.cvStorageService = cvStorageService;
+    }
+
+    @Transactional(readOnly = true)
+    public ApplicationResponseDTO getApplicationById(String applicationId) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn ứng tuyển với id: " + applicationId));
+        return convertToResponseDTO(application);
+    }
 
     @Override
     @Transactional
@@ -74,6 +85,8 @@ public class ApplicationService implements IApplicationService {
                 .status(savedApplication.getStatus())
                 .applicationDate(savedApplication.getApplicationDate())
                 .updatedAt(savedApplication.getUpdatedAt())
+                .aiScore(savedApplication.getAiScore())
+                .aiEvaluation(savedApplication.getAiEvaluation())
                 .build();
     }
 
@@ -89,6 +102,8 @@ public class ApplicationService implements IApplicationService {
                 .status(application.getStatus())
                 .applicationDate(application.getApplicationDate())
                 .updatedAt(application.getUpdatedAt())
+                .aiScore(application.getAiScore())
+                .aiEvaluation(application.getAiEvaluation())
                 .build();
     }
 
@@ -112,5 +127,15 @@ public class ApplicationService implements IApplicationService {
         return applications.stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
+    }
+    @Override
+    @Transactional
+    public void updateApplicationStatus(String applicationId, ApplicationStatus status) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn ứng tuyển với id: " + applicationId));
+
+        application.setStatus(status);
+        application.setUpdatedAt(LocalDateTime.now());
+        applicationRepository.save(application);
     }
 }

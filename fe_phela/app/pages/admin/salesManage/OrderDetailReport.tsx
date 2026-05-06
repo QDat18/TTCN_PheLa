@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '~/components/admin/Header';
 import { useParams } from 'react-router-dom';
 import api from '~/config/axios';
 import { IoCopyOutline, IoQrCodeOutline, IoCheckmarkCircleOutline, IoPrintOutline } from 'react-icons/io5';
@@ -158,8 +157,7 @@ const OrderDetailReport = () => {
 
 
     if (loading) return (
-        <div className="min-h-screen bg-gray-50">
-            <Header />
+        <div className="py-8">
             <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
             </div>
@@ -167,8 +165,7 @@ const OrderDetailReport = () => {
     );
 
     if (!order) return (
-        <div className="min-h-screen bg-gray-50">
-            <Header />
+        <div className="py-8">
             <div className="p-6 text-center text-red-500">
                 Không tìm thấy đơn hàng.
             </div>
@@ -176,9 +173,8 @@ const OrderDetailReport = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <Header />
-            <div className="p-6 max-w-7xl mx-auto">
+        <div className="py-8">
+            <div className="container mx-auto px-4">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-4">
                         <h1 className="text-2xl font-bold text-gray-800">

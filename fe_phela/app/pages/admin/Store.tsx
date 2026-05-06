@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import Header from '~/components/admin/Header';
 import api from '~/config/axios';
 import { toast } from 'react-toastify';
-import { FiEdit, FiTrash2, FiPlus, FiSearch, FiMapPin, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
+import { FiEdit, FiPlus, FiSearch, FiMapPin, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
+import { FaChevronDown } from 'react-icons/fa';
 import { useAuth } from '~/AuthContext';
 import type { Province as ProvinceDTO, District as DistrictDTO } from '~/services/locationService';
 import { getLocationHierarchy } from '~/services/locationService';
@@ -67,6 +67,7 @@ interface GoongPrediction {
 const Store = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [cityFilter, setCityFilter] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -92,10 +93,11 @@ const Store = () => {
   const [showSuggestionList, setShowSuggestionList] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [isCityModalOpen, setIsCityModalOpen] = useState(false);
+  const [citySearch, setCitySearch] = useState('');
   const [goongError, setGoongError] = useState('');
-  const { MapContainer, TileLayer, Marker, useMapEvents, L } = useMapComponents();
+  const { MapContainer, TileLayer, Marker, useMapEvents } = useMapComponents();
   const { user } = useAuth();
-  const [hasPermission, setHasPermission] = useState(false);
 
   useEffect(() => {
     const loadLocations = async () => {
@@ -126,8 +128,23 @@ const Store = () => {
     return selectedProvince?.districts ?? [];
   }, [selectedProvince]);
 
-  const normalizeVietnamese = (value?: string) =>
-    value ? value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
+  const normalizeVietnamese = (value?: string) => {
+    if (!value) return '';
+    let normalized = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    // Remove common prefixes and abbreviations
+    const prefixes = [
+      /^thanh pho\s+/, /^tp\.?\s+/,
+      /^tinh\s+/,
+      /^quan\s+/, /^q\.?\s+/,
+      /^huyen\s+/, /^h\.?\s+/,
+      /^phuong\s+/, /^p\.?\s+/,
+      /^xa\s+/
+    ];
+    prefixes.forEach(regex => {
+      normalized = normalized.replace(regex, '');
+    });
+    return normalized.trim();
+  };
 
   const isNameMatch = (candidate?: string, expected?: string) => {
     if (!candidate || !expected) return false;
@@ -253,17 +270,9 @@ const Store = () => {
     }
   };
 
-
   useEffect(() => {
-
-    if (user && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN')) {
-      setHasPermission(true);
-    } else {
-      setHasPermission(false);
-    }
-
     fetchBranches();
-  }, [cityFilter]);
+  }, [user]);
 
   useEffect(() => {
     if (!isModalOpen) {
@@ -334,10 +343,7 @@ const Store = () => {
   const fetchBranches = async () => {
     setLoading(true);
     try {
-      const url = cityFilter
-        ? `/api/branch/by-city?city=${cityFilter}`
-        : '/api/branch';
-      const response = await api.get(url);
+      const response = await api.get('/api/branch');
       const formattedBranches = Array.isArray(response.data)
         ? response.data.map((branch: any) => ({ ...branch, status: branch.status.toString() }))
         : response.data.content.map((branch: any) => ({ ...branch, status: branch.status.toString() }));
@@ -355,7 +361,6 @@ const Store = () => {
     setLoading(true);
     try {
       const response = await api.patch(`/api/admin/branch/${branchCode}/toggle-status`);
-
       setBranches((prev) =>
         prev.map((branch) =>
           branch.branchCode === branchCode ? {
@@ -379,7 +384,6 @@ const Store = () => {
         toast.error('Vui lòng điền đầy đủ thông tin');
         return;
       }
-
       const payload = {
         branchName: newBranch.branchName,
         latitude: newBranch.latitude,
@@ -397,7 +401,6 @@ const Store = () => {
         },
         ...prev,
       ]);
-
       setIsModalOpen(false);
       toast.success('Tạo cửa hàng thành công!');
       resetForm();
@@ -418,7 +421,6 @@ const Store = () => {
         toast.error('Vui lòng điền đầy đủ thông tin');
         return;
       }
-
       const payload = {
         branchName: newBranch.branchName,
         latitude: newBranch.latitude,
@@ -493,33 +495,25 @@ const Store = () => {
   const searchLocation = async () => {
     const trimmed = searchQuery.trim();
     if (!trimmed) return;
-
     if (canUseGoong) {
       if (goongSuggestions.length > 0) {
         await handleSelectSuggestion(goongSuggestions[0]);
         return;
       }
-
       try {
         setIsSearchingLocation(true);
         setGoongError('');
         const response = await fetch(
           `https://rsapi.goong.io/geocode?api_key=${goongApiKey}&address=${encodeURIComponent(trimmed)}`
         );
-
-        if (!response.ok) {
-          throw new Error(`Goong geocode failed with status ${response.status}`);
-        }
-
+        if (!response.ok) throw new Error(`Goong geocode failed with status ${response.status}`);
         const data = await response.json();
         const firstResult = data?.results?.[0];
-
         if (firstResult) {
           const compound = firstResult.compound ?? {};
           const location = firstResult.geometry?.location;
           const parsedLat = location?.lat !== undefined ? Number(location.lat) : undefined;
           const parsedLng = location?.lng !== undefined ? Number(location.lng) : undefined;
-
           setNewBranch((prev) => {
             const updated = {
               ...prev,
@@ -532,11 +526,7 @@ const Store = () => {
             prefillLocationSelections(updated.city, updated.district);
             return updated;
           });
-
-          if (parsedLat !== undefined && parsedLng !== undefined) {
-            setMapPosition([parsedLat, parsedLng]);
-          }
-
+          if (parsedLat !== undefined && parsedLng !== undefined) setMapPosition([parsedLat, parsedLng]);
           toast.success('Đã tìm thấy vị trí!');
           setShowSuggestionList(false);
           setGoongSuggestions([]);
@@ -553,7 +543,6 @@ const Store = () => {
       }
       return;
     }
-
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(trimmed)}`
@@ -583,7 +572,6 @@ const Store = () => {
 
   const LocationMarker = () => {
     if (!useMapEvents || !Marker) return null;
-
     const map = useMapEvents({
       click(e: any) {
         setMapPosition([e.latlng.lat, e.latlng.lng]);
@@ -594,7 +582,6 @@ const Store = () => {
         }));
       },
     });
-
     return <Marker position={mapPosition} />;
   };
 
@@ -606,7 +593,6 @@ const Store = () => {
         </div>
       );
     }
-
     return (
       <MapContainer
         center={mapPosition}
@@ -622,41 +608,71 @@ const Store = () => {
     );
   };
 
+  const filteredBranches = useMemo(() => {
+    return branches.filter((branch) => {
+      const matchesCity = cityFilter === '' || isNameMatch(branch.city, cityFilter);
+      const searchLower = searchTerm.toLowerCase().trim();
+      const matchesSearch = searchLower === '' ||
+        branch.branchName.toLowerCase().includes(searchLower) ||
+        branch.branchCode.toLowerCase().includes(searchLower) ||
+        branch.address.toLowerCase().includes(searchLower);
+      return matchesCity && matchesSearch;
+    });
+  }, [branches, cityFilter, searchTerm]);
+
+  const cityList = useMemo(() => {
+    if (locationHierarchy.length > 0) {
+      return locationHierarchy.map(p => p.name).sort((a, b) => a.localeCompare(b, 'vi'));
+    }
+    const cities = branches.map(b => b.city);
+    return Array.from(new Set(cities)).sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [branches, locationHierarchy]);
+
+  const filteredCityOptions = useMemo(() => {
+    const search = citySearch.toLowerCase().trim();
+    if (!search) return cityList;
+    return cityList.filter(city => city.toLowerCase().includes(search));
+  }, [cityList, citySearch]);
+
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      <div className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-        <Header />
-      </div>
-
-      <div className="container mx-auto px-4 pt-24 pb-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Quản lý cửa hàng</h1>
-            <p className="text-gray-600">Danh sách các cửa hàng trong hệ thống</p>
+    <div className="py-8">
+      <div className="container mx-auto px-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl font-black text-[#2C1E16] uppercase tracking-widest">Quản lý cửa hàng</h1>
+            <p className="text-[#8C5A35] text-base font-medium">Hệ thống {branches.length} điểm đến Phê La trên toàn quốc</p>
           </div>
-
-          <div className="mt-4 md:mt-0 flex space-x-3">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="text-gray-400" />
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative w-full sm:w-64 group">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <FiSearch className="text-[#8C5A35] group-focus-within:scale-110 transition-transform" />
               </div>
               <input
                 type="text"
-                value={cityFilter}
-                onChange={(e) => setCityFilter(e.target.value)}
-                placeholder="Lọc theo thành phố..."
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Tìm kiếm nhanh..."
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-medium focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all placeholder:text-gray-400 shadow-sm"
               />
             </div>
-
+            <div className="relative w-full sm:w-56 group">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <FiMapPin className="text-[#8C5A35] group-focus-within:scale-110 transition-transform" />
+              </div>
+              <button
+                onClick={() => setIsCityModalOpen(true)}
+                className="w-full pl-10 pr-10 py-2.5 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-medium text-left hover:border-[#d4a373] transition-all shadow-sm flex items-center justify-between"
+              >
+                <span className={`truncate ${cityFilter ? 'text-[#2C1E16]' : 'text-gray-400'}`}>
+                  {cityFilter || 'Tất cả thành phố'}
+                </span>
+                <FaChevronDown size={12} className="absolute right-4 text-[#8C5A35]" />
+              </button>
+            </div>
             {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
               <button
-                onClick={() => {
-                  resetForm();
-                  setIsModalOpen(true);
-                }}
-                className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                onClick={() => { resetForm(); setIsModalOpen(true); }}
+                className="w-full sm:w-auto flex items-center justify-center px-6 py-2.5 bg-[#2C1E16] text-[#FCF8F1] rounded-2xl hover:bg-[#8C5A35] transition-all text-sm font-black uppercase tracking-widest shadow-md shadow-[#2C1E16]/10"
               >
                 <FiPlus className="mr-2" />
                 Thêm cửa hàng
@@ -666,58 +682,40 @@ const Store = () => {
         </div>
 
         {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <div className="flex flex-col justify-center items-center h-64 gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#8C5A35]"></div>
+            <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#8C5A35] animate-pulse">Đang đồng bộ dữ liệu...</p>
           </div>
-        ) : branches.length > 0 ? (
-          <div className="bg-white rounded-xl shadow overflow-hidden">
+        ) : filteredBranches.length > 0 ? (
+          <div className="bg-white rounded-3xl shadow-xl shadow-[#2C1E16]/5 border border-[#E5D5C5]/50 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã cửa hàng</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tên cửa hàng</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Địa chỉ</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thành phố</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quận/Huyện</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
+              <table className="min-w-full divide-y divide-[#E5D5C5]/30">
+                <thead>
+                  <tr className="bg-[#FDF5E6]/50">
+                    <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Mã</th>
+                    <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Cửa hàng</th>
+                    <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Địa chỉ</th>
+                    <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Vị trí</th>
+                    <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Trạng thái</th>
+                    <th className="px-6 py-4 text-right text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {branches.map((branch) => (
-                    <tr key={branch.branchCode} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{branch.branchCode}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{branch.branchName}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{branch.address}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{branch.city}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{branch.district}</td>
+                <tbody className="divide-y divide-[#E5D5C5]/20">
+                  {filteredBranches.map((branch) => (
+                    <tr key={branch.branchCode} className="hover:bg-[#FDF5E6]/20 transition-colors group">
+                      <td className="px-6 py-4 whitespace-nowrap text-[13px] font-bold text-[#2C1E16]">{branch.branchCode}</td>
+                      <td className="px-6 py-4 whitespace-nowrap"><div className="text-[13px] font-black text-[#2C1E16] uppercase tracking-wider">{branch.branchName}</div></td>
+                      <td className="px-6 py-4 text-[13px] text-[#8C5A35] max-w-xs truncate font-medium">{branch.address}</td>
+                      <td className="px-6 py-4 whitespace-nowrap"><div className="text-[12px] font-bold text-[#2C1E16]">{branch.city}</div><div className="text-[11px] text-[#8C5A35] font-medium">{branch.district}</div></td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${branch.status === 'SHOW'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                          }`}>
-                          {branch.status === 'SHOW' ? 'Hoạt động' : 'Ngừng hoạt động'}
-                        </span>
+                        <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest ${branch.status === 'SHOW' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>{branch.status === 'SHOW' ? 'Hoạt động' : 'Tạm nghỉ'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-base font-medium space-x-2">
                         {user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' ? (
-                          <>
-                            <button
-                              onClick={() => openEditModal(branch)}
-                              className="text-primary hover:text-primary-dark p-1"
-                              title="Chỉnh sửa"
-                            >
-                              <FiEdit size={18} />
-                            </button>
-                            <button
-                              onClick={() => toggleStatus(branch.branchCode)}
-                              className={`p-1 ${branch.status === 'SHOW' ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'}`}
-                              title={branch.status === 'SHOW' ? 'Tắt hoạt động' : 'Bật hoạt động'}
-                            >
-                              {branch.status === 'SHOW' ? <FiToggleLeft size={18} /> : <FiToggleRight size={18} />}
-                            </button>
-                          </>
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openEditModal(branch)} className="p-2 text-[#8C5A35] hover:bg-white rounded-xl hover:shadow-sm transition-all" title="Chỉnh sửa"><FiEdit size={18} /></button>
+                            <button onClick={() => toggleStatus(branch.branchCode)} className={`p-2 rounded-xl hover:shadow-sm transition-all ${branch.status === 'SHOW' ? 'text-red-400 hover:bg-red-50' : 'text-green-400 hover:bg-green-50'}`} title={branch.status === 'SHOW' ? 'Tắt hoạt động' : 'Bật hoạt động'}>{branch.status === 'SHOW' ? <FiToggleLeft size={22} /> : <FiToggleRight size={22} />}</button>
+                          </div>
                         ) : null}
                       </td>
                     </tr>
@@ -727,233 +725,173 @@ const Store = () => {
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow p-8 text-center">
-            <FiMapPin className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-lg font-medium text-gray-900">Không có cửa hàng nào</h3>
-            <p className="mt-1 text-gray-500">Bạn chưa có cửa hàng nào trong hệ thống.</p>
-            <div className="mt-6">
-              {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
-                <button
-                  onClick={() => {
-                    resetForm();
-                    setIsModalOpen(true);
-                  }}
-                  className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-                >
-                  <FiPlus className="mr-2" />
-                  Thêm cửa hàng
-                </button>
-              )}
-            </div>
+          <div className="bg-white rounded-3xl shadow-xl p-16 text-center border border-[#E5D5C5]/50">
+            <div className="bg-[#FDF5E6] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><FiMapPin className="h-10 w-10 text-[#8C5A35] opacity-50" /></div>
+            <h3 className="text-lg font-black text-[#2C1E16] uppercase tracking-widest">Không tìm thấy cửa hàng</h3>
+            <p className="mt-2 text-[#8C5A35] text-base font-medium italic">Vui lòng điều chỉnh tiêu chí tìm kiếm hoặc lọc.</p>
+            {(searchTerm || cityFilter) && (<button onClick={() => { setSearchTerm(''); setCityFilter(''); }} className="mt-6 text-[12px] font-black text-[#d4a373] uppercase tracking-[0.2em] hover:underline">Xóa tất cả bộ lọc</button>)}
           </div>
         )}
 
-        {/* Modal Thêm/Cập nhật cửa hàng */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-800">
-                    {isEditing ? 'Cập nhật cửa hàng' : 'Thêm cửa hàng mới'}
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      resetForm();
-                    }}
-                    className="text-gray-400 hover:text-gray-500"
-                  >
-                    <span className="sr-only">Đóng</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-[#FCF8F1] rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-[#E5D5C5]">
+              <div className="p-8">
+                <div className="flex justify-between items-center mb-8">
+                  <div>
+                    <h2 className="text-xl font-black text-[#2C1E16] uppercase tracking-[0.2em]">{isEditing ? 'Cập nhật cửa hàng' : 'Thêm cửa hàng mới'}</h2>
+                    <div className="h-1 w-12 bg-[#8C5A35] mt-2 rounded-full"></div>
+                  </div>
+                  <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="p-2 hover:bg-[#E5D5C5]/30 rounded-full transition-colors"><svg className="h-6 w-6 text-[#8C5A35]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tên cửa hàng *</label>
-                    <input
-                      type="text"
-                      value={newBranch.branchName}
-                      onChange={(e) => setNewBranch({ ...newBranch, branchName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      placeholder="Nhập tên cửa hàng"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Thành phố *</label>
-                    {locationHierarchy.length > 0 ? (
-                      <select
-                        value={selectedProvinceCode !== null ? selectedProvinceCode.toString() : ''}
-                        onChange={handleProvinceChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                        disabled={locationLoading}
-                        required
-                      >
-                        <option value="" disabled>
-                          Chọn Tỉnh/Thành phố
-                        </option>
-                        {locationHierarchy.map((province) => (
-                          <option key={province.code} value={province.code.toString()}>
-                            {province.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={newBranch.city}
-                        onChange={(e) => setNewBranch({ ...newBranch, city: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                        placeholder="Nhập thành phố"
-                      />
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Quận/Huyện *</label>
-                    {locationHierarchy.length > 0 ? (
-                      <select
-                        value={selectedDistrictCode !== null ? selectedDistrictCode.toString() : ''}
-                        onChange={handleDistrictChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                        disabled={!selectedProvinceCode || locationLoading}
-                        required
-                      >
-                        <option value="" disabled>
-                          Chọn Quận/Huyện
-                        </option>
-                        {districtOptions.map((district) => (
-                          <option key={district.code} value={district.code.toString()}>
-                            {district.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={newBranch.district}
-                        onChange={(e) => setNewBranch({ ...newBranch, district: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                        placeholder="Nhập quận/huyện"
-                      />
-                    )}
-                  </div>
-
-                  {locationHierarchy.length > 0 && (locationLoading || locationError) && (
-                    <div className="md:col-span-2 text-sm">
-                      {locationLoading && (
-                        <span className="text-gray-500">Đang tải danh sách địa lý...</span>
-                      )}
-                      {locationLoading && locationError && ' '}
-                      {locationError && <span className="text-red-500">{locationError}</span>}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="group">
+                      <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Tên cửa hàng *</label>
+                      <input type="text" value={newBranch.branchName} onChange={(e) => setNewBranch({ ...newBranch, branchName: e.target.value })} className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm" placeholder="Nhập tên cửa hàng" />
                     </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ *</label>
-                    <input
-                      type="text"
-                      value={newBranch.address}
-                      onChange={(e) => setNewBranch({ ...newBranch, address: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      placeholder="Nhập địa chỉ"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tìm kiếm vị trí</label>
-                    <div className="flex flex-col gap-2 md:flex-row md:items-start">
-                      <div className="relative flex-1">
-                        <input
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setSearchQuery(value);
-                            if (canUseGoong) {
-                              setShowSuggestionList(true);
-                            }
-                          }}
-                          onFocus={() => {
-                            if (canUseGoong && goongSuggestions.length > 0) {
-                              setShowSuggestionList(true);
-                            }
-                          }}
-                          onBlur={() => window.setTimeout(() => setShowSuggestionList(false), 150)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                          placeholder={canUseGoong ? 'Nhập địa chỉ hoặc địa danh, hệ thống gợi ý tự động' : 'Nhập địa chỉ để tìm kiếm vị trí...'}
-                        />
-                        {canUseGoong && showSuggestionList && goongSuggestions.length > 0 && (
-                          <ul className="absolute z-20 mt-1 w-full rounded border border-gray-200 bg-white shadow max-h-52 overflow-y-auto">
-                            {goongSuggestions.map((suggestion) => (
-                              <li
-                                key={suggestion.place_id}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  void handleSelectSuggestion(suggestion);
-                                }}
-                                className="cursor-pointer px-3 py-2 hover:bg-gray-100"
-                              >
-                                <p className="font-medium text-sm text-gray-900">
-                                  {suggestion.structured_formatting?.main_text || suggestion.description}
-                                </p>
-                                {suggestion.structured_formatting?.secondary_text && (
-                                  <p className="text-xs text-gray-500">
-                                    {suggestion.structured_formatting.secondary_text}
-                                  </p>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {canUseGoong && isLoadingSuggestions && (
-                          <span className="absolute right-3 top-3 text-xs text-gray-400">Đang gợi ý...</span>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="group">
+                        <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Thành phố *</label>
+                        {locationHierarchy.length > 0 ? (
+                          <div className="relative">
+                            <select value={selectedProvinceCode !== null ? selectedProvinceCode.toString() : ''} onChange={handleProvinceChange} className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm appearance-none cursor-pointer" disabled={locationLoading} required>
+                              <option value="" disabled>Chọn Tỉnh/Thành phố</option>
+                              {locationHierarchy.map((province) => (<option key={province.code} value={province.code.toString()}>{province.name}</option>))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-[#8C5A35]"><FaChevronDown size={10} /></div>
+                          </div>
+                        ) : (
+                          <input type="text" value={newBranch.city} onChange={(e) => setNewBranch({ ...newBranch, city: e.target.value })} className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm" placeholder="Nhập thành phố" />
                         )}
                       </div>
-                      <button
-                        onClick={searchLocation}
-                        className="inline-flex items-center justify-center gap-2 rounded-md bg-gray-200 px-4 py-2 text-gray-700 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-60"
-                        disabled={isSearchingLocation}
-                      >
-                        <FiSearch className="h-5 w-5" />
-                        {isSearchingLocation ? 'Đang tìm...' : 'Tìm'}
-                      </button>
+                      <div className="group">
+                        <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Quận/Huyện *</label>
+                        {locationHierarchy.length > 0 ? (
+                          <div className="relative">
+                            <select value={selectedDistrictCode !== null ? selectedDistrictCode.toString() : ''} onChange={handleDistrictChange} className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm appearance-none cursor-pointer" disabled={!selectedProvinceCode || locationLoading} required>
+                              <option value="" disabled>Chọn Quận/Huyện</option>
+                              {districtOptions.map((district) => (<option key={district.code} value={district.code.toString()}>{district.name}</option>))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-[#8C5A35]"><FaChevronDown size={10} /></div>
+                          </div>
+                        ) : (
+                          <input type="text" value={newBranch.district} onChange={(e) => setNewBranch({ ...newBranch, district: e.target.value })} className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm" placeholder="Nhập quận/huyện" />
+                        )}
+                      </div>
                     </div>
-                    {canUseGoong && goongError && (
-                      <p className="mt-1 text-sm text-red-500">{goongError}</p>
-                    )}
+                    <div className="group">
+                      <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Địa chỉ cụ thể *</label>
+                      <input type="text" value={newBranch.address} onChange={(e) => setNewBranch({ ...newBranch, address: e.target.value })} className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm" placeholder="Số nhà, tên đường..." />
+                    </div>
+                    <div className="group">
+                      <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Tìm kiếm vị trí</label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1 group">
+                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><FiSearch className="text-[#8C5A35]" /></div>
+                          <input type="text" value={searchQuery} onChange={(e) => { const value = e.target.value; setSearchQuery(value); if (canUseGoong) setShowSuggestionList(true); }} onFocus={() => { if (canUseGoong && goongSuggestions.length > 0) setShowSuggestionList(true); }} onBlur={() => window.setTimeout(() => setShowSuggestionList(false), 150)} className="w-full pl-10 pr-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm" placeholder={canUseGoong ? 'Gợi ý địa chỉ tự động...' : 'Tìm kiếm địa chỉ...'} />
+                          {canUseGoong && showSuggestionList && goongSuggestions.length > 0 && (
+                            <ul className="absolute z-[60] mt-2 w-full rounded-2xl border border-[#E5D5C5] bg-white shadow-2xl max-h-52 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                              {goongSuggestions.map((suggestion) => (
+                                <li key={suggestion.place_id} onMouseDown={(e) => { e.preventDefault(); void handleSelectSuggestion(suggestion); }} className="cursor-pointer px-4 py-3 hover:bg-[#FDF5E6] transition-colors border-b border-[#E5D5C5]/30 last:border-0">
+                                  <p className="font-bold text-[13px] text-[#2C1E16]">{suggestion.structured_formatting?.main_text || suggestion.description}</p>
+                                  {suggestion.structured_formatting?.secondary_text && (<p className="text-[11px] text-[#8C5A35] mt-0.5">{suggestion.structured_formatting.secondary_text}</p>)}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <button onClick={searchLocation} disabled={isSearchingLocation} className="px-6 py-3 bg-[#E5D5C5]/30 text-[#8C5A35] rounded-2xl hover:bg-[#E5D5C5]/50 transition-all font-black text-[12px] uppercase tracking-widest disabled:opacity-50">{isSearchingLocation ? '...' : 'Tìm'}</button>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Chọn vị trí trên bản đồ</label>
-                    {renderMap()}
-                    <div className="mt-2 text-sm text-gray-500">
-                      <span className="font-medium">Tọa độ:</span> {mapPosition[0].toFixed(6)}, {mapPosition[1].toFixed(6)}
+                  <div className="space-y-4">
+                    <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Vị trí bản đồ</label>
+                    <div className="rounded-[2rem] overflow-hidden border-2 border-[#E5D5C5] shadow-inner h-[280px]">{renderMap()}</div>
+                    <div className="bg-white/50 p-4 rounded-2xl border border-[#E5D5C5] flex justify-between items-center">
+                      <div><p className="text-[11px] font-black text-[#8C5A35] uppercase tracking-widest mb-1">Tọa độ GPS</p><p className="text-[13px] font-bold text-[#2C1E16]">{mapPosition[0].toFixed(6)}, {mapPosition[1].toFixed(6)}</p></div>
+                      <div className="w-10 h-10 rounded-full bg-[#FDF5E6] flex items-center justify-center"><FiMapPin className="text-[#8C5A35]" /></div>
                     </div>
                   </div>
                 </div>
-
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      resetForm();
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                  >
-                    Hủy bỏ
-                  </button>
-                  <button
-                    onClick={isEditing ? handleUpdateBranch : handleCreateBranch}
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                  >
-                    {isEditing ? 'Cập nhật' : 'Thêm mới'}
-                  </button>
+                <div className="mt-10 flex justify-end gap-3 pt-6 border-t border-[#E5D5C5]/50">
+                  <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="px-8 py-3 text-[12px] font-black text-[#8C5A35] uppercase tracking-[0.2em] hover:bg-[#E5D5C5]/20 rounded-2xl transition-all">Hủy bỏ</button>
+                  <button onClick={isEditing ? handleUpdateBranch : handleCreateBranch} className="px-10 py-3 bg-[#2C1E16] text-[#FCF8F1] rounded-2xl hover:bg-[#8C5A35] transition-all font-black text-[12px] uppercase tracking-[0.2em] shadow-lg shadow-[#2C1E16]/20">{isEditing ? 'Cập nhật hệ thống' : 'Khởi tạo cửa hàng'}</button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {isCityModalOpen && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4 overflow-hidden">
+            <div className="bg-[#FCF8F1] rounded-[2.5rem] shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col border border-[#E5D5C5] animate-in fade-in zoom-in duration-300">
+              {/* Modal Header */}
+              <div className="p-8 pb-4 flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-black text-[#2C1E16] uppercase tracking-[0.2em]">Chọn khu vực</h2>
+                  <div className="h-1 w-12 bg-[#8C5A35] mt-2 rounded-full"></div>
+                </div>
+                <button 
+                  onClick={() => setIsCityModalOpen(false)}
+                  className="p-3 hover:bg-[#E5D5C5]/30 rounded-full transition-colors"
+                >
+                  <svg className="h-6 w-6 text-[#8C5A35]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <div className="px-8 mb-6">
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <FiSearch className="text-[#8C5A35] group-focus-within:scale-110 transition-transform" />
+                  </div>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={citySearch}
+                    onChange={(e) => setCitySearch(e.target.value)}
+                    placeholder="Tìm nhanh tỉnh thành..."
+                    className="w-full pl-12 pr-4 py-4 bg-white border border-[#E5D5C5] rounded-[1.5rem] text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm"
+                  />
+                </div>
+              </div>
+
+              {/* City Grid */}
+              <div className="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  <button
+                    onClick={() => { setCityFilter(''); setIsCityModalOpen(false); }}
+                    className={`p-4 rounded-2xl text-sm font-bold text-center transition-all border-2 ${
+                      cityFilter === '' 
+                      ? 'bg-[#2C1E16] text-[#FCF8F1] border-[#2C1E16] shadow-lg shadow-[#2C1E16]/20' 
+                      : 'bg-white text-[#8C5A35] border-transparent hover:border-[#d4a373] hover:bg-[#FDF5E6]'
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  {filteredCityOptions.map((city) => (
+                    <button
+                      key={city}
+                      onClick={() => { setCityFilter(city); setIsCityModalOpen(false); }}
+                      className={`p-4 rounded-2xl text-sm font-bold text-center transition-all border-2 truncate ${
+                        cityFilter === city 
+                        ? 'bg-[#2C1E16] text-[#FCF8F1] border-[#2C1E16] shadow-lg shadow-[#2C1E16]/20' 
+                        : 'bg-white text-[#8C5A35] border-transparent hover:border-[#d4a373] hover:bg-[#FDF5E6]'
+                      }`}
+                      title={city}
+                    >
+                      {city}
+                    </button>
+                  ))}
+                </div>
+                {filteredCityOptions.length === 0 && (
+                  <div className="py-12 text-center">
+                    <FiMapPin className="mx-auto h-12 w-12 text-[#E5D5C5] mb-4" />
+                    <p className="text-[#8C5A35] font-black uppercase text-xs tracking-widest">Không tìm thấy tỉnh thành này</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

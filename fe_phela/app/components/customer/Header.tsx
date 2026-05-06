@@ -137,7 +137,7 @@ function Header() {
               <div className="flex items-center cursor-pointer text-[#2C1E16] hover:text-[#8C5A35] transition-all py-2">
                 <FaUser className="text-[14px]" />
                 <span className="ml-2 text-[11px] font-black uppercase tracking-wider hidden xl:inline max-w-[100px] truncate">
-                  {user.username}
+                  {user.fullname || user.username}
                 </span>
                 <FaChevronDown size={8} className="ml-1.5 text-[#2C1E16]/40 group-hover:text-[#8C5A35] hidden xl:inline" />
               </div>

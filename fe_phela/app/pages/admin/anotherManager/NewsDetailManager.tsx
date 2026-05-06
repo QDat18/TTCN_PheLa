@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getNewsById, createNews, updateNews } from '~/services/newsService';
-import Header from '~/components/admin/Header';
 
 const NewsDetailManager = () => {
     const { newsId } = useParams<{ newsId: string }>();
@@ -76,11 +75,8 @@ const NewsDetailManager = () => {
     };
 
     return (
-        <div>
-             <div className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-                <Header />
-            </div>
-            <div className="container mx-auto mt-20 p-4">
+        <div className="py-8">
+            <div className="container mx-auto p-4">
                 <h1 className="text-3xl font-bold mb-6">
                     {isEditMode ? 'Chỉnh sửa bài viết' : 'Tạo bài viết mới'}
                 </h1>

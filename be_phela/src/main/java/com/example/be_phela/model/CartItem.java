@@ -1,5 +1,6 @@
 package com.example.be_phela.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.UuidGenerator;
@@ -13,6 +14,7 @@ public class CartItem {
     @Column(name = "cart_item_id", nullable = false, unique = true)
     private String cartItemId;
 
+    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cart_id", nullable = false)
     private Cart cart;

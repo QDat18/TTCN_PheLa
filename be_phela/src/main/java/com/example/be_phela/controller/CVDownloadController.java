@@ -12,8 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
-import java.net.MalformedURLException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -32,36 +31,39 @@ public class CVDownloadController {
     @GetMapping("/download/{applicationId}")
     public ResponseEntity<Resource> downloadCV(@PathVariable String applicationId) {
         try {
-            // Tìm application
             var application = applicationRepository.findById(applicationId)
                     .orElseThrow(() -> new RuntimeException("Application not found"));
 
             String cvUrl = application.getCvUrl();
-            if (cvUrl == null || !cvUrl.startsWith("/uploads/cv/")) {
+            if (cvUrl == null) {
                 return ResponseEntity.notFound().build();
             }
 
-            // Lấy tên file từ URL
-            String fileName = cvUrl.substring("/uploads/cv/".length());
-            Path filePath = Paths.get("uploads/cv").resolve(fileName).normalize();
-
-            Resource resource = new UrlResource(filePath.toUri());
-
-            if (!resource.exists() || !resource.isReadable()) {
-                return ResponseEntity.notFound().build();
+            // Nếu là URL bên ngoài (Cloudinary), redirect
+            if (cvUrl.startsWith("http")) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.FOUND)
+                        .location(URI.create(cvUrl))
+                        .build();
             }
 
-            // Xác định content type
-            String contentType = getContentType(fileName);
+            // Xử lý file local (legacy)
+            if (cvUrl.startsWith("/uploads/cv/")) {
+                String fileName = cvUrl.substring("/uploads/cv/".length());
+                Path filePath = Paths.get("uploads/cv").resolve(fileName).normalize();
+                Resource resource = new UrlResource(filePath.toUri());
 
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename=\"CV_" + application.getFullName() + "_" + fileName + "\"")
-                    .body(resource);
+                if (resource.exists() && resource.isReadable()) {
+                    String contentType = getContentType(fileName);
+                    return ResponseEntity.ok()
+                            .contentType(MediaType.parseMediaType(contentType))
+                            .header(HttpHeaders.CONTENT_DISPOSITION,
+                                    "attachment; filename=\"CV_" + application.getFullName() + "_" + fileName + "\"")
+                            .body(resource);
+                }
+            }
 
-        } catch (MalformedURLException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.notFound().build();
+
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
@@ -77,25 +79,33 @@ public class CVDownloadController {
                     .orElseThrow(() -> new RuntimeException("Application not found"));
 
             String cvUrl = application.getCvUrl();
-            if (cvUrl == null || !cvUrl.startsWith("/uploads/cv/")) {
+            if (cvUrl == null) {
                 return ResponseEntity.notFound().build();
             }
 
-            String fileName = cvUrl.substring("/uploads/cv/".length());
-            Path filePath = Paths.get("uploads/cv").resolve(fileName).normalize();
-
-            Resource resource = new UrlResource(filePath.toUri());
-
-            if (!resource.exists() || !resource.isReadable()) {
-                return ResponseEntity.notFound().build();
+            // Nếu là URL bên ngoài (Cloudinary), redirect
+            if (cvUrl.startsWith("http")) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.FOUND)
+                        .location(URI.create(cvUrl))
+                        .build();
             }
 
-            String contentType = getContentType(fileName);
+            // Xử lý file local (legacy)
+            if (cvUrl.startsWith("/uploads/cv/")) {
+                String fileName = cvUrl.substring("/uploads/cv/".length());
+                Path filePath = Paths.get("uploads/cv").resolve(fileName).normalize();
+                Resource resource = new UrlResource(filePath.toUri());
 
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
-                    .body(resource);
+                if (resource.exists() && resource.isReadable()) {
+                    String contentType = getContentType(fileName);
+                    return ResponseEntity.ok()
+                            .contentType(MediaType.parseMediaType(contentType))
+                            .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                            .body(resource);
+                }
+            }
+
+            return ResponseEntity.notFound().build();
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
@@ -134,9 +144,6 @@ public class CVDownloadController {
         }
     }
 
-    /**
-     * Xác định content type từ extension
-     */
     private String getContentType(String fileName) {
         String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
         return switch (extension) {
@@ -147,12 +154,9 @@ public class CVDownloadController {
         };
     }
 
-    /**
-     * DTO for CV file information
-     */
     @lombok.Data
     @lombok.Builder
-    static class CVFileInfo {
+    public static class CVFileInfo {
         private String fileName;
         private long fileSize;
         private boolean exists;

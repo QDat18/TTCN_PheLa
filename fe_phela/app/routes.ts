@@ -8,8 +8,6 @@ const customerRoutes: RouteConfig = [
     route("san-pham", "routes/product.tsx"),
     route("san-pham/:productId", "routes/productDetail.tsx"),
     route("cart", "routes/cart.tsx"),
-    route("payment", "routes/payment.tsx"),
-    route("payment-return", "routes/paymentReturn.tsx"),
 
     // Câu chuyện thương hiệu
     route("ve-chung-toi", "routes/aboutUs.tsx"),
@@ -26,48 +24,56 @@ const customerRoutes: RouteConfig = [
     route("tuyen-dung", "routes/recruitmentCus.tsx"),
     route("tuyen-dung/:recruitmentId", "routes/recruitmentDetail.tsx"),
 
-    // Thẻ thành viên
+    // Thẻ thành viên (Public Info)
     route("dieu-khoan-va-dieu-kien-su-dung-the-thanh-vien-phe-la", "routes/clause.tsx"),
+    route("membership", "routes/membership.tsx"),
 
-    // Liên hệ
+    // Liên hệ & Khác
     route("lien-he", "routes/contact.tsx"),
-
-    // Chuyện đặc sản
     route("chuyendacsan", "routes/specialtyStory.tsx"),
-
-    // Khuyến mãi
     route("khuyen-mai", "routes/promotion.tsx"),
 
-    //Tài khoản
+    // Tài khoản (Public part)
     route("login-register", "routes/loginRegisterCus.tsx"),
-    route("profileCustomer", "routes/profileCustomer.tsx"),
-    route("my-address", "routes/deliveryAddress.tsx"),
-    route("my-orders", "routes/myOrders.tsx"),
-    route("my-orders/:orderId", "routes/orderDetail.tsx"),
-    route("membership", "routes/membership.tsx"),
     route("oauth2/callback", "routes/oauth2Callback.tsx"),
+
+    // --- PROTECTED CUSTOMER ROUTES ---
+    layout("routes/customerGuardLayout.tsx", [
+      route("payment", "routes/payment.tsx"),
+      route("payment-return", "routes/paymentReturn.tsx"),
+      route("profileCustomer", "routes/profileCustomer.tsx"),
+      route("my-address", "routes/deliveryAddress.tsx"),
+      route("my-orders", "routes/myOrders.tsx"),
+      route("my-orders/:orderId", "routes/orderDetail.tsx"),
+    ]),
 ];
 
 const adminRoutes: RouteConfig = [
       index("routes/loginRegisterAdmin.tsx"),
-      route("dashboard", "routes/AdminDashboard.tsx"),
-      route("san-pham", "routes/productManage.tsx"),
-      route("danh-muc", "routes/category.tsx"),
-      route("don-hang", "routes/orderManage.tsx"),
-      route("don-hang/:orderId", "routes/orderDetailReport.tsx"),
-      route("bao-cao-don-hang", "routes/orderReport.tsx"),
-      route("doanh-thu", "routes/revenue.tsx"),
-      route("profileAdmin", "routes/profileAdmin.tsx"),
-      route("staff", "routes/staff.tsx"),
-      route("store", "routes/storeManage.tsx"),
-      route("tin-tuyen-dung", "routes/recruitment.tsx"),
-      route("tin-tuyen-dung/:jobPostingId/candidates", "routes/recruitmentDetailJob.tsx"),
-      route("ung-vien", "routes/candidate.tsx"),
-      route("banner", "routes/bannerManager.tsx"),
-      route("tin-tuc-admin", "routes/newsManager.tsx"),
-      route("tin-tuc-admin/:newsId", "routes/newsDetailManager.tsx"),
-      route("support", "routes/support.tsx"),
-      route("ma-giam-gia", "routes/voucherManage.tsx"),
+      
+      // --- PROTECTED ADMIN ROUTES ---
+      layout("routes/adminGuardLayout.tsx", [
+        route("dashboard", "routes/AdminDashboard.tsx"),
+        route("san-pham", "routes/productManage.tsx"),
+        route("danh-muc", "routes/category.tsx"),
+        route("don-hang", "routes/orderManage.tsx"),
+        route("don-hang/:orderId", "routes/orderDetailReport.tsx"),
+        route("bao-cao-don-hang", "routes/orderReport.tsx"),
+        route("doanh-thu", "routes/revenue.tsx"),
+        route("bao-cao-chi-nhanh", "routes/branchRevenue.tsx"),
+        route("profileAdmin", "routes/profileAdmin.tsx"),
+        route("staff", "routes/staff.tsx"),
+        route("store", "routes/storeManage.tsx"),
+        route("tin-tuyen-dung", "routes/recruitment.tsx"),
+        route("tin-tuyen-dung/:jobPostingId/candidates", "routes/recruitmentDetailJob.tsx"),
+        route("ung-vien", "routes/candidate.tsx"),
+        route("banner", "routes/bannerManager.tsx"),
+        route("tin-tuc-admin", "routes/newsManager.tsx"),
+        route("tin-tuc-admin/:newsId", "routes/newsDetailManager.tsx"),
+        route("support", "routes/support.tsx"),
+        route("ma-giam-gia", "routes/voucherManage.tsx"),
+        route("ai-management", "routes/aiManagement.tsx"),
+      ])
 ];
 
 
