@@ -22,6 +22,7 @@ function Header() {
   const [notes, setNotes] = useState(0);
   const [tier, setTier] = useState('E-Member');
   const [accumulatedNotes, setAccumulatedNotes] = useState(0);
+  const [displayFullname, setDisplayFullname] = useState('');
 
   useEffect(() => {
     const fetchCartAndNotes = async () => {
@@ -40,6 +41,7 @@ function Header() {
             setNotes(customerRes.data.currentNotes || 0);
             setTier(customerRes.data.membershipTier || 'E-Member');
             setAccumulatedNotes(customerRes.data.totalAccumulatedNotes || 0);
+            setDisplayFullname(customerRes.data.fullname || customerRes.data.fullName || '');
           }
         } catch (error) {
           console.error('Lỗi khi tải thông tin Header:', error);
@@ -137,7 +139,7 @@ function Header() {
               <div className="flex items-center cursor-pointer text-[#2C1E16] hover:text-[#8C5A35] transition-all py-2">
                 <FaUser className="text-[14px]" />
                 <span className="ml-2 text-[11px] font-black uppercase tracking-wider hidden xl:inline max-w-[100px] truncate">
-                  {user.fullname || user.username}
+                  {displayFullname || user.fullname || user.username}
                 </span>
                 <FaChevronDown size={8} className="ml-1.5 text-[#2C1E16]/40 group-hover:text-[#8C5A35] hidden xl:inline" />
               </div>

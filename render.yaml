@@ -7,7 +7,6 @@ services:
     dockerContext: ./be_phela
     plan: free
     branch: main
-    healthCheckPath: /actuator/health
     envVars:
       # Database Configuration (Supabase)
       - key: DB_HOST

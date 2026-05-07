@@ -49,7 +49,7 @@ const HeadOrder = () => {
         {/* Logo Phe La */}
         <Link to="/" className="flex items-center group">
           <img
-            src={logo}
+            src="/logo.png"
             className="h-8 md:h-10 w-auto filter drop-shadow-sm brightness-0 opacity-80 hover:opacity-100 transition-opacity"
             alt="Phê La"
           />
@@ -77,7 +77,7 @@ const HeadOrder = () => {
             <div className="relative group cursor-pointer flex items-center gap-2 py-2 px-5 rounded-full bg-white border border-[#E5D5C5] hover:border-[#8C5A35] transition-all shadow-sm">
               <IoPersonOutline size={16} className="text-[#8C5A35]" />
               <span className="text-[10px] md:text-[11px] font-black tracking-widest uppercase max-w-[100px] truncate text-[#2C1E16] mt-0.5">
-                {user.username}
+                {user.fullname || user.username}
               </span>
               <IoChevronDownOutline size={14} className="text-[#5C4D43]" />
 
