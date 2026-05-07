@@ -35,11 +35,11 @@ services:
       - key: APP_BASE_URL
         value: https://phela-backend.onrender.com
       - key: FRONTEND_CUSTOMER_URL
-        value: https://phela-customer.onrender.com
+        value: https://phela-customer-tgza.onrender.com
       - key: FRONTEND_ADMIN_URL
         value: https://phela-admin.onrender.com
       - key: CORS_ALLOWED_ORIGINS
-        value: https://phela-customer.onrender.com,https://phela-admin.onrender.com,http://localhost:3000,http://localhost:3001
+        value: https://phela-customer-tgza.onrender.com,https://phela-admin.onrender.com,http://localhost:3000,http://localhost:3001
       
       # Email Configuration (Gmail/SendGrid)
       - key: MAIL_HOST
@@ -67,9 +67,9 @@ services:
       - key: PAYOS_CHECKSUM_KEY
         sync: false
       - key: PAYOS_RETURN_URL
-        value: https://phela-customer.onrender.com/order-success
+        value: https://phela-customer-tgza.onrender.com/order-success
       - key: PAYOS_CANCEL_URL
-        value: https://phela-customer.onrender.com/order-failed
+        value: https://phela-customer-tgza.onrender.com/order-failed
 
       # SePay Configuration
       - key: SEPAY_API_KEY
@@ -98,7 +98,7 @@ services:
     rootDir: ./fe_phela
     plan: free
     branch: main
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: node server.mjs
     envVars:
       - key: NODE_VERSION
@@ -121,7 +121,7 @@ services:
     rootDir: ./fe_phela
     plan: free
     branch: main
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: node server.mjs
     envVars:
       - key: NODE_VERSION
