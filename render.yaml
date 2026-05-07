@@ -23,7 +23,7 @@ services:
       
       # Port Configuration
       - key: PORT
-        value: "8081"
+        value: "8080"
       
       # Security & JWT
       - key: JWT_SIGNER_KEY
