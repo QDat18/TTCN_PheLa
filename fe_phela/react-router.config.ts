@@ -1,7 +1,7 @@
-import { defineConfig } from "@react-router/dev/config";
-import vercel from "@vercel/react-router";
+import { vercelPreset } from "@vercel/react-router/vite";
+import type { Config } from "@react-router/dev/config";
 
-export default defineConfig({
+export default {
   ssr: true,
-  presets: [vercel],
-});
+  presets: [vercelPreset()],
+} satisfies Config;
