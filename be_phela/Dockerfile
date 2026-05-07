@@ -27,8 +27,8 @@ WORKDIR /app
 # Chỉ copy file .jar đã được build từ STAGE 1 vào image cuối cùng
 COPY --from=builder /app/target/*.jar app.jar
 
-# Mở cổng 8080 (hoặc cổng ứng dụng của bạn)
-EXPOSE 8080
+# Mở cổng 10000 (hoặc cổng ứng dụng của bạn)
+EXPOSE 10000
 
 # Lệnh để khởi chạy ứng dụng
 ENTRYPOINT ["java", "-jar", "app.jar"]
