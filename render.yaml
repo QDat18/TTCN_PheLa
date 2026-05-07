@@ -91,6 +91,12 @@ services:
       - key: GEMINI_API_KEY
         sync: false
 
+      # Optimization & Production Config
+      - key: HIBERNATE_DDL_AUTO
+        value: "none"
+      - key: SPRING_PROFILES_ACTIVE
+        value: "prod"
+
   # Frontend Customer Service
   - type: web
     name: phela-customer
