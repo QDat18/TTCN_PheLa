@@ -12,7 +12,7 @@ const Footer = () => {
                 <div className="flex flex-col items-center md:items-start justify-center">
                     <Link to="/" className="block group">
                         <img
-                            src={logo}
+                            src="/logo.png"
                             alt="Phê La"
                             className="h-24 w-auto filter drop-shadow-lg brightness-[2] transition-transform group-hover:scale-105 duration-500"
                         />

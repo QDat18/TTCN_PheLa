@@ -86,7 +86,7 @@ function Header() {
 
         {/* Logo Section */}
         <Link to="/" className="flex-shrink-0 mr-2 lg:mr-6">
-          <img src={logo} className="h-8 md:h-9 w-auto filter drop-shadow-sm brightness-0 opacity-80 hover:opacity-100 transition-opacity" alt="Phê La" />
+          <img src="/logo.png" className="h-8 md:h-9 w-auto filter drop-shadow-sm brightness-0 opacity-80 hover:opacity-100 transition-opacity" alt="Phê La" />
         </Link>
 
         {/* Desktop Menu - KHÔNG BAO GIỜ rớt dòng */}
