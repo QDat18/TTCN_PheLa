@@ -46,7 +46,7 @@ interface Branch {
 }
 
 const Cart = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [shippingFee, setShippingFee] = useState(0);
@@ -58,7 +58,7 @@ const Cart = () => {
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   const cartIdRef = useRef<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -90,7 +90,7 @@ const Cart = () => {
     try {
       const cartResponse = await api.get(`/api/customer/cart/getCustomer/${customerId}`);
       const cartData = cartResponse.data;
-      
+
       if (cartData.cartId) {
         cartIdRef.current = cartData.cartId;
       }
@@ -111,6 +111,8 @@ const Cart = () => {
   }, []);
 
   useEffect(() => {
+    if (authLoading) return; // Đợi Auth load xong mới bắt đầu tải giỏ hàng, tránh bị nháy màn hình "Giỏ trống"
+
     const fetchInitialData = async () => {
       if (user && user.type === 'customer' && user.customerId) {
         setLoading(true);
@@ -149,90 +151,90 @@ const Cart = () => {
         try {
           const guestCartStr = localStorage.getItem('guestCart');
           if (guestCartStr) {
-              const parsed = JSON.parse(guestCartStr);
-              const itemsWithProducts = await fetchAllProducts(parsed);
-              setCartItems(itemsWithProducts);
-              const tAmount = itemsWithProducts.reduce((acc, item) => acc + ((item.product?.originalPrice || 0) * item.quantity), 0);
-              setTotalAmount(tAmount);
-              setFinalAmount(tAmount);
+            const parsed = JSON.parse(guestCartStr);
+            const itemsWithProducts = await fetchAllProducts(parsed);
+            setCartItems(itemsWithProducts);
+            const tAmount = itemsWithProducts.reduce((acc, item) => acc + ((item.product?.originalPrice || 0) * item.quantity), 0);
+            setTotalAmount(tAmount);
+            setFinalAmount(tAmount);
           }
           const branchResponse = await api.get('/api/branch');
           setBranches(branchResponse.data);
-        } catch(e) {}
+        } catch (e) { }
         setLoading(false);
       }
     };
 
     fetchInitialData();
-  }, [user, updateFullCartState]);
+  }, [user?.id, updateFullCartState, authLoading]);
 
 
   const updateQuantity = async (cartItemId: string, newQuantity: number) => {
     if (newQuantity < 0) return;
-    
+
     // 1. Optimistic UI Update
     setCartItems(prevItems => {
-        const updatedItems = prevItems.map(item => {
-            if (item.cartItemId === cartItemId) {
-                const unitPrice = item.amount / item.quantity;
-                return { 
-                    ...item, 
-                    quantity: newQuantity,
-                    amount: unitPrice * newQuantity 
-                };
-            }
-            return item;
-        });
-        
-        // Recalculate totals immediately
-        const newTotal = updatedItems.reduce((sum, item) => sum + item.amount, 0);
-        setTotalAmount(newTotal);
-        setFinalAmount(newTotal + shippingFee);
-        
-        return updatedItems;
+      const updatedItems = prevItems.map(item => {
+        if (item.cartItemId === cartItemId) {
+          const unitPrice = item.amount / item.quantity;
+          return {
+            ...item,
+            quantity: newQuantity,
+            amount: unitPrice * newQuantity
+          };
+        }
+        return item;
+      });
+
+      // Recalculate totals immediately
+      const newTotal = updatedItems.reduce((sum, item) => sum + item.amount, 0);
+      setTotalAmount(newTotal);
+      setFinalAmount(newTotal + shippingFee);
+
+      return updatedItems;
     });
 
     if (!user || user.type !== 'customer') return;
 
     // 2. Debounced API Call
     if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
+      clearTimeout(debounceTimerRef.current);
     }
 
     debounceTimerRef.current = setTimeout(async () => {
-        try {
-            const customerId = user.customerId;
-            let cartId = cartIdRef.current;
-            
-            if (!cartId) {
-                const cartResponse = await api.get(`/api/customer/cart/getCustomer/${customerId}`);
-                cartId = cartResponse.data.cartId;
-                cartIdRef.current = cartId;
-            }
+      try {
+        const customerId = user.customerId;
+        let cartId = cartIdRef.current;
 
-            const itemToUpdate = cartItems.find(item => item.cartItemId === cartItemId);
-            if (!itemToUpdate) return;
-
-            if (newQuantity === 0) {
-                await removeItem(cartItemId);
-                return;
-            }
-
-            await api.post(`/api/customer/cart/${cartId}/items`, {
-                productId: itemToUpdate.productId,
-                productSizeId: itemToUpdate.productSizeId,
-                toppingIds: itemToUpdate.selectedToppings?.map(t => t.productId) || [],
-                quantity: newQuantity,
-            });
-
-            // Final sync to ensure everything is perfect
-            await updateFullCartState(customerId);
-
-        } catch (err: any) {
-            toast.error(`Lỗi đồng bộ: ${err.response?.data?.message || err.message}`);
-            if (user?.customerId) updateFullCartState(user.customerId);
+        if (!cartId) {
+          const cartResponse = await api.get(`/api/customer/cart/getCustomer/${customerId}`);
+          cartId = cartResponse.data.cartId;
+          cartIdRef.current = cartId;
         }
-    }, 500); 
+
+        const itemToUpdate = cartItems.find(item => item.cartItemId === cartItemId);
+        if (!itemToUpdate) return;
+
+        if (newQuantity === 0) {
+          await removeItem(cartItemId);
+          return;
+        }
+
+        await api.post(`/api/customer/cart/${cartId}/items`, {
+          productId: itemToUpdate.productId,
+          productSizeId: itemToUpdate.productSizeId,
+          toppingIds: itemToUpdate.selectedToppings?.map(t => t.productId) || [],
+          quantity: newQuantity,
+        });
+
+        // Final sync to ensure everything is perfect
+        await updateFullCartState(customerId);
+
+      } catch (err: any) {
+        toast.error(`Lỗi đồng bộ: ${err.response?.data?.message || err.message}`);
+        if (user?.customerId) updateFullCartState(user.customerId);
+      }
+    }, 500);
   };
 
   const updateBranch = async (branchCode: string) => {
@@ -569,7 +571,19 @@ const Cart = () => {
                   to={user ? "/payment" : "/login-register"}
                   onClick={(e) => {
                     if (!user) {
+                      e.preventDefault();
                       toast.info("Vui lòng đăng nhập để thực hiện thanh toán");
+                      return;
+                    }
+                    if (!selectedAddress) {
+                      e.preventDefault();
+                      toast.warning("Vui lòng chọn địa chỉ nhận hàng trước khi thanh toán!");
+                      return;
+                    }
+                    if (!selectedBranch) {
+                      e.preventDefault();
+                      toast.warning("Vui lòng chọn cửa hàng Phê La trước khi thanh toán!");
+                      return;
                     }
                   }}
                   className="w-full flex items-center justify-center gap-3 py-5 bg-[#2C1E16] text-white rounded-full font-black uppercase tracking-[0.2em] text-[11px] shadow-lg shadow-[#2C1E16]/10 hover:bg-[#8C5A35] hover:shadow-[#8C5A35]/30 hover:-translate-y-1 transition-all active:scale-[0.98]"

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '~/config/axios';
 import { Link } from 'react-router-dom';
-import { useAuth } from '~/AuthContext'; 
+import { useAuth } from '~/AuthContext';
 import { toast } from 'react-toastify';
 
 // Interfaces
@@ -43,7 +43,14 @@ const Order = () => {
       setLoading(true);
       try {
         const response = await api.get(`/api/order/status/${selectedStatus}`);
-        setOrders(response.data);
+        const data = response.data;
+        if (data && Array.isArray(data.content)) {
+          setOrders(data.content);
+        } else if (Array.isArray(data)) {
+          setOrders(data);
+        } else {
+          setOrders([]);
+        }
       } catch (error) {
         console.error("Failed to fetch orders:", error);
         toast.error("Không thể tải danh sách đơn hàng");
@@ -62,8 +69,8 @@ const Order = () => {
 
     try {
       await api.patch(`/api/order/${orderId}/status`, null, {
-        params: { 
-          status: newStatus,         
+        params: {
+          status: newStatus,
           username: user.username
         }
       });
@@ -107,7 +114,7 @@ const Order = () => {
   };
 
   const getStatusColor = (status: OrderStatus) => {
-    switch(status) {
+    switch (status) {
       case 'PENDING': return 'bg-gray-200 text-gray-800';
       case 'CONFIRMED': return 'bg-blue-100 text-blue-800';
       case 'DELIVERING': return 'bg-yellow-100 text-yellow-800';
@@ -119,11 +126,9 @@ const Order = () => {
 
   const sortedOrders = useMemo(() => {
     return [...orders].sort((a, b) => {
-      const aIsSingleItem = a.orderItems.length === 1;
-      const bIsSingleItem = b.orderItems.length === 1;
-      if (aIsSingleItem && !bIsSingleItem) return -1;
-      if (!aIsSingleItem && bIsSingleItem) return 1;
-      return 0;
+      const dateA = new Date(a.orderDate).getTime();
+      const dateB = new Date(b.orderDate).getTime();
+      return dateB - dateA; // Sắp xếp giảm dần (mới nhất lên trước)
     });
   }, [orders]);
 
@@ -133,7 +138,7 @@ const Order = () => {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Quản lý Đơn hàng</h1>
         </div>
-        
+
         {/* Status Filter Tabs */}
         <div className="mb-6 flex space-x-2 overflow-x-auto pb-2">
           {STATUSES.map(status => {
@@ -142,11 +147,10 @@ const Order = () => {
               <button
                 key={status}
                 onClick={() => setSelectedStatus(status)}
-                className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-                  selectedStatus === status
+                className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${selectedStatus === status
                     ? 'bg-[#d4a373] text-white shadow-lg'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                }`}
+                  }`}
               >
                 {STATUS_LABELS[status]}
                 {selectedStatus === status && orderCount > 0 && (
@@ -158,7 +162,7 @@ const Order = () => {
             );
           })}
         </div>
-        
+
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#d4a373]"></div>
@@ -212,7 +216,7 @@ const Order = () => {
                           ) : (
                             <span className="text-gray-400 text-sm">Không có hành động</span>
                           )}
-                          <Link 
+                          <Link
                             to={`/admin/don-hang/${order.orderId}`}
                             className="text-[#d4a373] hover:text-[#b38a5a]"
                           >

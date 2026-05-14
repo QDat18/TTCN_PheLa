@@ -6,7 +6,7 @@ import com.example.be_phela.dto.response.BranchResponseDTO;
 import com.example.be_phela.dto.response.CartResponseDTO;
 import com.example.be_phela.interService.ICartService;
 import com.example.be_phela.model.*;
-import com.example.be_phela.repository.*; 
+import com.example.be_phela.repository.*;
 import com.example.be_phela.utils.DistanceCalculator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,10 +22,7 @@ import java.util.stream.Collectors;
 public class CartService implements ICartService {
     private static final Logger log = LoggerFactory.getLogger(CartService.class);
 
-    private static final double BASE_SHIPPING_FEE = 10000.0;
-    private static final double FEE_PER_KM = 2000.0;
-    private static final double FREE_SHIPPING_THRESHOLD = 500000.0;
-
+    private final SystemSettingService settingService;
     private final CartRepository cartRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
@@ -36,15 +33,16 @@ public class CartService implements ICartService {
     private final BranchService branchService;
     private final com.example.be_phela.mapper.ProductMapper productMapper;
 
-    public CartService(CartRepository cartRepository, 
-                       CustomerRepository customerRepository, 
-                       ProductRepository productRepository, 
-                       CartItemRepository cartItemRepository, 
-                       AddressRepository addressRepository, 
-                       BranchRepository branchRepository, 
-                       ProductSizeRepository productSizeRepository, 
-                       BranchService branchService, 
-                       com.example.be_phela.mapper.ProductMapper productMapper) {
+    public CartService(CartRepository cartRepository,
+                       CustomerRepository customerRepository,
+                       ProductRepository productRepository,
+                       CartItemRepository cartItemRepository,
+                       AddressRepository addressRepository,
+                       BranchRepository branchRepository,
+                       ProductSizeRepository productSizeRepository,
+                       BranchService branchService,
+                       com.example.be_phela.mapper.ProductMapper productMapper,
+                       SystemSettingService settingService) {
         this.cartRepository = cartRepository;
         this.customerRepository = customerRepository;
         this.productRepository = productRepository;
@@ -54,6 +52,7 @@ public class CartService implements ICartService {
         this.productSizeRepository = productSizeRepository;
         this.branchService = branchService;
         this.productMapper = productMapper;
+        this.settingService = settingService;
     }
 
     @Transactional
@@ -260,8 +259,12 @@ public class CartService implements ICartService {
     }
 
     private double calculateShippingFee(Cart cart, double distance) {
+        double freeThreshold = settingService.getDouble("shipping.free_threshold", 500000.0);
+        double baseShippingFee = settingService.getDouble("shipping.base_fee", 25000.0);
+        double feePerKm = settingService.getDouble("shipping.extra_fee_per_km", 5000.0);
         double totalAmount = calculateCartTotalFromItems(cart);
-        if (totalAmount >= FREE_SHIPPING_THRESHOLD) { 
+        boolean freeEnabled = settingService.getBoolean("shipping.free_enabled", true);
+        if (freeEnabled && totalAmount >= freeThreshold) {
             return 0.0;
         }
 
@@ -271,10 +274,10 @@ public class CartService implements ICartService {
         if (address == null || branch == null ||
                 address.getLatitude() == null || address.getLongitude() == null ||
                 branch.getLatitude() == null || branch.getLongitude() == null) {
-            return BASE_SHIPPING_FEE; 
+            return baseShippingFee;
         }
 
-        return Math.floor(BASE_SHIPPING_FEE + (distance * FEE_PER_KM)); 
+        return Math.floor(baseShippingFee + (distance * feePerKm));
     }
 
     public double calculateCartTotalFromItems(Cart cart) {

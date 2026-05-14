@@ -332,7 +332,7 @@ const ProductManage = () => {
                   }}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm"
                   placeholder="Nhập tên hoặc mô tả..."
-                  disabled={loading || isModalOpen}
+                  disabled={isModalOpen}
                 />
               </div>
             </div>
@@ -345,7 +345,7 @@ const ProductManage = () => {
                   setCurrentPage(0);
                 }}
                 className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm rounded-md"
-                disabled={loading || isModalOpen}
+                disabled={isModalOpen}
               >
                 <option value="">Tất cả danh mục</option>
                 {categories.map((category) => (

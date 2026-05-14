@@ -17,6 +17,7 @@ export interface CustomerUser extends BaseUser {
   customerId: string;
   pointUse: number;
   currentNotes: number;
+  totalAccumulatedNotes?: number;
   membershipTier: string;
   gender?: string;
   latitude?: number;

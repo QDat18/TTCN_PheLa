@@ -2,8 +2,8 @@ package com.example.be_phela.controller;
 
 import com.example.be_phela.dto.request.JobPostingCreateDTO;
 import com.example.be_phela.dto.request.JobPostingUpdateDTO;
+import com.example.be_phela.dto.response.ApplicationResponseDTO;
 import com.example.be_phela.dto.response.JobPostingDTO;
-import com.example.be_phela.model.Application;
 import com.example.be_phela.model.enums.ApplicationStatus;
 import com.example.be_phela.model.enums.JobStatus;
 import com.example.be_phela.service.JobPostingService;
@@ -81,7 +81,7 @@ public class JobPostingController {
     }
 
     @GetMapping("/{jobPostingId}/applications/{applicationId}")
-    public ResponseEntity<Application> getApplicationDetails(
+    public ResponseEntity<ApplicationResponseDTO> getApplicationDetails(
             @PathVariable String jobPostingId,
             @PathVariable String applicationId) {
         return ResponseEntity.ok(jobPostingService.getApplicationDetails(jobPostingId, applicationId));

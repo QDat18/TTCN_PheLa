@@ -2,6 +2,7 @@ package com.example.be_phela.service;
 
 import com.example.be_phela.dto.request.JobPostingCreateDTO;
 import com.example.be_phela.dto.request.JobPostingUpdateDTO;
+import com.example.be_phela.dto.response.ApplicationResponseDTO;
 import com.example.be_phela.dto.response.JobPostingDTO;
 import com.example.be_phela.interService.IJobPostingService;
 import com.example.be_phela.model.Application;
@@ -168,7 +169,7 @@ public class JobPostingService implements IJobPostingService {
 
     @Override
     @Transactional(readOnly = true)
-    public Application getApplicationDetails(String jobPostingId, String applicationId) {
+    public ApplicationResponseDTO getApplicationDetails(String jobPostingId, String applicationId) {
         // Tìm Application trực tiếp
         Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found with id: " + applicationId));
@@ -178,7 +179,21 @@ public class JobPostingService implements IJobPostingService {
             throw new RuntimeException("Application does not belong to the specified job posting");
         }
 
-        return application;
+        // Map sang DTO để tránh circular reference khi serialize JSON
+        return ApplicationResponseDTO.builder()
+                .applicationId(application.getApplicationId())
+                .fullName(application.getFullName())
+                .email(application.getEmail())
+                .phone(application.getPhone())
+                .cvUrl(application.getCvUrl())
+                .jobPostingId(application.getJobPosting().getJobPostingId())
+                .jobTitle(application.getJobPosting().getTitle())
+                .status(application.getStatus())
+                .applicationDate(application.getApplicationDate())
+                .updatedAt(application.getUpdatedAt())
+                .aiScore(application.getAiScore())
+                .aiEvaluation(application.getAiEvaluation())
+                .build();
     }
 
     @Override

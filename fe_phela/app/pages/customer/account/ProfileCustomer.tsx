@@ -12,6 +12,9 @@ interface Customer {
   gender: string;
   pointUse: number;
   orderCancelCount: number;
+  currentNotes?: number;
+  totalAccumulatedNotes?: number;
+  membershipTier?: string;
 }
 
 interface PasswordUpdate {
@@ -35,33 +38,37 @@ const ProfileCustomer = () => {
   const [reordering, setReordering] = useState<boolean>(false);
 
   const getMemberTier = (points: number) => {
-    if (points < 10) return 'E-Member';
-    if (points < 149) return 'Fa';
-    if (points < 400) return 'Sol';
-    return 'La';
+    if (points < 300) return 'MEMBER';
+    if (points < 600) return 'SILVER';
+    if (points < 1000) return 'GOLD';
+    return 'DIAMOND';
   };
 
   const getTierInfo = (tier: string) => {
     switch (tier) {
-      case 'La':
+      case 'DIAMOND':
         return {
           color: 'bg-purple-100 text-purple-800',
-          description: 'Hạng cao nhất với nhiều ưu đãi đặc biệt'
+          description: 'Hạng cao nhất với nhiều ưu đãi đặc biệt',
+          label: 'Kim Cương'
         };
-      case 'Sol':
+      case 'GOLD':
         return {
-          color: 'bg-blue-100 text-blue-800',
-          description: 'Hạng trung cấp với nhiều ưu đãi'
+          color: 'bg-yellow-100 text-yellow-800',
+          description: 'Hạng trung cấp với nhiều ưu đãi',
+          label: 'Vàng'
         };
-      case 'Fa':
+      case 'SILVER':
         return {
-          color: 'bg-green-100 text-green-800',
-          description: 'Hạng cơ bản với một số ưu đãi'
+          color: 'bg-gray-100 text-gray-800',
+          description: 'Hạng cơ bản với một số ưu đãi',
+          label: 'Bạc'
         };
       default:
         return {
-          color: 'bg-gray-100 text-gray-800',
-          description: 'Hạng mới bắt đầu'
+          color: 'bg-orange-100 text-orange-800',
+          description: 'Hạng mới bắt đầu',
+          label: 'Thành Viên'
         };
     }
   };
@@ -81,6 +88,9 @@ const ProfileCustomer = () => {
       gender: user.gender || '',
       pointUse: (user as any).pointUse || 0.0,
       orderCancelCount: (user as any).orderCancelCount || 0,
+      currentNotes: 0,
+      totalAccumulatedNotes: 0,
+      membershipTier: 'E-Member',
     };
     setCustomer(customerData);
     setFormData({
@@ -97,8 +107,19 @@ const ProfileCustomer = () => {
         if (response.data.content && response.data.content.length > 0) {
           setLatestOrder(response.data.content[0]);
         }
+
+        // Fetch customer profile to get accurate notes and tier
+        const profileRes = await api.get(`/api/customer/profile/${(user as any).customerId}`);
+        if (profileRes.data) {
+          setCustomer(prev => prev ? {
+            ...prev,
+            currentNotes: profileRes.data.currentNotes || 0,
+            totalAccumulatedNotes: profileRes.data.totalAccumulatedNotes || 0,
+            membershipTier: profileRes.data.membershipTier || 'E-Member'
+          } : null);
+        }
       } catch (err) {
-        console.error('Error fetching order stats:', err);
+        console.error('Error fetching data:', err);
       }
     };
     fetchOrderStats();
@@ -263,17 +284,17 @@ const ProfileCustomer = () => {
     );
   }
 
-  const memberTier = getMemberTier(customer.pointUse);
+  const memberTier = customer.membershipTier || getMemberTier(customer.totalAccumulatedNotes || 0);
   const tierInfo = getTierInfo(memberTier);
 
   const getTierStep = (points: number) => {
-    if (points < 10) return { current: points, next: 10, nextTier: 'Fa' };
-    if (points < 149) return { current: points - 10, next: 139, nextTier: 'Sol' };
-    if (points < 400) return { current: points - 149, next: 251, nextTier: 'La' };
+    if (points < 300) return { current: points, next: 300, nextTier: 'Bạc' };
+    if (points < 600) return { current: points - 300, next: 300, nextTier: 'Vàng' };
+    if (points < 1000) return { current: points - 600, next: 400, nextTier: 'Kim Cương' };
     return { current: 1, next: 1, nextTier: 'Max' };
   };
 
-  const tierStep = getTierStep(customer.pointUse);
+  const tierStep = getTierStep(customer.totalAccumulatedNotes || 0);
   const progressWidth = tierStep.nextTier === 'Max' ? 100 : Math.min(100, (tierStep.current / tierStep.next) * 100);
 
   return (
@@ -305,7 +326,7 @@ const ProfileCustomer = () => {
                   <div className="w-10 h-10 border border-[#8C5A35] rounded-full flex items-center justify-center p-1.5 bg-[#8C5A35]/10">
                     <span className="text-[#8C5A35] font-black italic text-xl">Ph</span>
                   </div>
-                  <h2 className="text-2xl font-black uppercase tracking-[0.2em] italic">{memberTier}</h2>
+                  <h2 className="text-2xl font-black uppercase tracking-[0.2em] italic">{tierInfo.label}</h2>
                 </div>
                 <div className="inline-flex items-center px-3 py-1 bg-white/5 border border-white/10 rounded-full">
                   <FiAward className="mr-2 text-[#8C5A35]" />
@@ -330,7 +351,7 @@ const ProfileCustomer = () => {
                   <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Nốt nhạc tích lũy</p>
                   <div className="flex items-center justify-end gap-3">
                     <span className="text-6xl font-black text-[#FDF5E6] tracking-tighter">
-                      {Math.floor(customer.pointUse)}
+                      {customer.currentNotes || 0}
                     </span>
                     <span className="text-sm font-black text-[#8C5A35] uppercase italic pb-1">Nốt nhạc</span>
                   </div>
@@ -349,7 +370,7 @@ const ProfileCustomer = () => {
                 <span>
                   {tierStep.nextTier === 'Max' 
                     ? '100%' 
-                    : `${Math.floor(customer.pointUse)}/${tierStep.nextTier === 'Fa' ? 10 : tierStep.nextTier === 'Sol' ? 149 : 400} Nốt nhạc`}
+                    : `${customer.totalAccumulatedNotes || 0}/${tierStep.nextTier === 'Bạc' ? 300 : tierStep.nextTier === 'Vàng' ? 600 : 1000} Nốt nhạc`}
                 </span>
               </div>
               <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">

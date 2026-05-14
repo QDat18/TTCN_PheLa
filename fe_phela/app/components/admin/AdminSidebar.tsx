@@ -5,7 +5,7 @@ import {
   FiHome, FiPackage, FiShoppingBag, FiBarChart2,
   FiTag, FiUsers, FiMapPin, FiBriefcase,
   FiMoreHorizontal, FiHelpCircle, FiChevronDown,
-  FiX, FiMenu
+  FiX, FiMenu, FiSettings
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '~/AuthContext';
@@ -29,7 +29,8 @@ const iconMap: Record<number, React.ElementType> = {
   6: FiMapPin, // Cửa hàng
   7: FiBriefcase, // Tuyển dụng
   8: FiMoreHorizontal, // Khác
-  9: FiHelpCircle // Hỗ trợ
+  9: FiHelpCircle, // Hỗ trợ
+  10: FiSettings // Cài đặt
 };
 
 const AdminSidebar: React.FC<SidebarProps> = ({
@@ -57,8 +58,8 @@ const AdminSidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
 
   const roleMenus: Record<string, number[]> = {
-    'SUPER_ADMIN': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-    'ADMIN': [0, 1, 2, 3, 4, 6, 7, 8, 9]
+    'SUPER_ADMIN': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    'ADMIN': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   };
 
   const allowedMenus = roleMenus[user?.role || ''] || [];

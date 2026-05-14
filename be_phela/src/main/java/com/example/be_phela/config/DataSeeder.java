@@ -105,7 +105,7 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     private void seedAdmins() {
-        if (adminRepository.count() == 0) {
+        if (adminRepository.findByUsername("superadmin").isEmpty()) {
             Admin superAdmin = Admin.builder()
                     .username("superadmin")
                     .password(passwordEncoder.encode("admin123"))
@@ -118,6 +118,7 @@ public class DataSeeder implements CommandLineRunner {
                     .employCode("EMP001")
                     .build();
             adminRepository.save(superAdmin);
+            System.out.println(">>> Created default SUPER_ADMIN: superadmin / admin123");
         }
     }
 

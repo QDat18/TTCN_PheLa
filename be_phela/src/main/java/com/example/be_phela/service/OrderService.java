@@ -38,6 +38,7 @@ public class OrderService implements IOrderService {
     private final VoucherRepository voucherRepository;
     private final PointHistoryRepository pointHistoryRepository;
     private final com.example.be_phela.mapper.ProductMapper productMapper;
+    private final SystemSettingService settingService;
 
     public OrderService(OrderRepository orderRepository,
                         CartRepository cartRepository,
@@ -46,7 +47,8 @@ public class OrderService implements IOrderService {
                         AddressRepository addressRepository,
                         VoucherRepository voucherRepository,
                         PointHistoryRepository pointHistoryRepository,
-                        com.example.be_phela.mapper.ProductMapper productMapper) {
+                        com.example.be_phela.mapper.ProductMapper productMapper,
+                        SystemSettingService settingService) {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
         this.orderItemRepository = orderItemRepository;
@@ -55,6 +57,7 @@ public class OrderService implements IOrderService {
         this.voucherRepository = voucherRepository;
         this.pointHistoryRepository = pointHistoryRepository;
         this.productMapper = productMapper;
+        this.settingService = settingService;
     }
 
     @Override
@@ -133,7 +136,8 @@ public class OrderService implements IOrderService {
             pointHistoryRepository.save(redemptionHistory);
         }
 
-        Double pointsDiscount = notesUsed * 1000.0; // 1 Note = 1,000 VND
+        int noteValueVnd = settingService.getInt("loyalty.note_value_vnd", 1000);
+        Double pointsDiscount = notesUsed * (double) noteValueVnd; // 1 Note = noteValueVnd VND (from settings)
 
         Order order = Order.builder()
                 .orderCode("PL" + System.currentTimeMillis() + new Random().nextInt(1000))
@@ -315,7 +319,8 @@ public class OrderService implements IOrderService {
     private void awardNotesToCustomer(Order order) {
         // Chỉ tích điểm nếu chưa có nốt nhạc nào được tích cho đơn này
         if (order.getNotesEarned() == null || order.getNotesEarned() == 0) {
-            int earnedPoints = (int) (order.getFinalAmount() / 10000); // 1 Nốt nhạc cho mỗi 10,000 VND
+            int spendPerNote = settingService.getInt("loyalty.spend_per_note", 10000);
+            int earnedPoints = (int) (order.getFinalAmount() / spendPerNote); // Dynamic: 1 Nốt / spendPerNote VND
             if (earnedPoints > 0) {
                 Customer customer = order.getCustomer();
                 int currentNotes = customer.getCurrentNotes() != null ? customer.getCurrentNotes() : 0;
@@ -477,11 +482,14 @@ public class OrderService implements IOrderService {
 
     private void updateMembershipTier(Customer customer) {
         int total = customer.getTotalAccumulatedNotes() != null ? customer.getTotalAccumulatedNotes() : 0;
-        if (total >= 5000) {
+        int silverThreshold = settingService.getInt("loyalty.silver_threshold", 500);
+        int goldThreshold   = settingService.getInt("loyalty.gold_threshold", 2000);
+        int diamondThreshold = settingService.getInt("loyalty.diamond_threshold", 5000);
+        if (total >= diamondThreshold) {
             customer.setMembershipTier(MembershipTier.DIAMOND);
-        } else if (total >= 2000) {
+        } else if (total >= goldThreshold) {
             customer.setMembershipTier(MembershipTier.GOLD);
-        } else if (total >= 500) {
+        } else if (total >= silverThreshold) {
             customer.setMembershipTier(MembershipTier.SILVER);
         } else {
             customer.setMembershipTier(MembershipTier.MEMBER);

@@ -86,6 +86,70 @@ public class AuthenticationController {
                         .build());
     }
 
+    @PostMapping("/customer/register")
+    public ResponseEntity<ApiResponse<AuthenticationResponse>> registerCustomer(
+            @Valid @RequestBody CustomerCreateDTO request) {
+        log.info("Received Customer registration request for: {}", request.getUsername());
+        Supplier<AuthenticationResponse> registerSupplier = () -> authenticationService.registerCustomer(request);
+        return handleRegistration(registerSupplier, "Đăng ký thành công! Vui lòng kiểm tra email để xác nhận.");
+    }
+
+    @PostMapping("/customer/login")
+    public ResponseEntity<ApiResponse<AuthenticationResponse>> loginCustomer(
+            @Valid @RequestBody AuthenticationRequest request) {
+        log.info("Customer login request received for username: {}", request.getUsername());
+        try {
+            AuthenticationResponse response = authenticationService.loginCustomer(request);
+            return buildResponse(HttpStatus.OK, "success", "Customer logged in successfully", response);
+        } catch (UsernameNotFoundException e) {
+            log.warn("Login failed: Username not found {}", request.getUsername());
+            return buildResponse(HttpStatus.NOT_FOUND, "error", "Tài khoản không tồn tại", null);
+        } catch (BadCredentialsException e) {
+            log.warn("Login failed: Bad credentials for username {}", request.getUsername());
+            return buildResponse(HttpStatus.UNAUTHORIZED, "error", "Sai thông tin đăng nhập", null);
+        } catch (Exception e) {
+            log.error("Customer login failed for username: {}", request.getUsername(), e);
+            return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "error", "Lỗi hệ thống", null);
+        }
+    }
+
+    @PostMapping("/forgot-password/send-otp")
+    public ResponseEntity<ApiResponse<String>> sendPasswordResetOtp(@RequestBody java.util.Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            log.info("Sending OTP for password reset to email: {}", email);
+            authenticationService.sendPasswordResetOtp(email);
+            return ResponseEntity.ok(ApiResponse.<String>builder()
+                    .success(true).status("success").message("Mã OTP đã được gửi đến email của bạn")
+                    .build());
+        } catch (Exception e) {
+            log.error("Failed to send OTP", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<String>builder()
+                            .success(false).status("error").message(e.getMessage())
+                            .build());
+        }
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@RequestBody java.util.Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String otp = request.get("otp");
+            String newPassword = request.get("newPassword");
+            authenticationService.verifyOtpAndResetPassword(email, otp, newPassword);
+            return ResponseEntity.ok(ApiResponse.<String>builder()
+                    .success(true).status("success").message("Đổi mật khẩu thành công")
+                    .build());
+        } catch (Exception e) {
+            log.error("Failed to reset password", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.<String>builder()
+                            .success(false).status("error").message(e.getMessage())
+                            .build());
+        }
+    }
+
     private ResponseEntity<ApiResponse<AuthenticationResponse>> handleRegistration(
             Supplier<AuthenticationResponse> registerFunction, String successMessage) {
         try {

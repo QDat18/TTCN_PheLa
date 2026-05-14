@@ -55,6 +55,13 @@ public class AdminJwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = bearerToken.substring(7);
 
+        // Kiểm tra định dạng cơ bản của JWT (phải có 2 dấu chấm) để tránh lỗi parse khi token rác
+        if (token.chars().filter(ch -> ch == '.').count() != 2) {
+            log.warn("Invalid JWT format received: {}", token);
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
             SignedJWT signedJWT = SignedJWT.parse(token);
 

@@ -8,10 +8,14 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import org.springframework.scheduling.annotation.EnableAsync;
 
+import org.springframework.data.web.config.EnableSpringDataWebSupport;
+import static org.springframework.data.web.config.EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO;
+
 @SpringBootApplication
 @EnableAsync
 @EnableJpaRepositories(basePackages = "com.example.be_phela.repository")
 @EntityScan(basePackages = "com.example.be_phela.model")
+@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)
 public class BePhelaApplication {
 
     public static void main(String[] args) {

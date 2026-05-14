@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth, isCustomerUser, type CustomerUser } from "~/AuthContext";
 import api from "~/config/axios";
 import {
@@ -51,11 +52,10 @@ const MembershipDashboard = () => {
 
   const getTierInfo = (tier: string) => {
     switch (tier) {
-      case 'DONG': return { name: 'Đồng', color: '#B87333', next: 100 };
-      case 'BAC': return { name: 'Bạc', color: '#C0C0C0', next: 300 };
-      case 'VANG': return { name: 'Vàng', color: '#FFD700', next: 600 };
-      case 'KIM_CUONG': return { name: 'Kim Cương', color: '#E5E4E2', next: 1000 };
-      default: return { name: 'Thành viên', color: '#8C5A35', next: 50 };
+      case 'SILVER': return { name: 'Bạc', color: '#C0C0C0', next: 600 };
+      case 'GOLD': return { name: 'Vàng', color: '#FFD700', next: 1000 };
+      case 'DIAMOND': return { name: 'Kim Cương', color: '#E5E4E2', next: 1000 };
+      default: return { name: 'Thành viên', color: '#8C5A35', next: 300 };
     }
   };
 
@@ -82,8 +82,11 @@ const MembershipDashboard = () => {
             className="flex flex-col md:flex-row md:items-end justify-between gap-8"
           >
             <div>
+              <Link to="/" className="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors mb-4 text-sm font-medium">
+                <FiArrowDownLeft /> Quay lại Trang Chủ
+              </Link>
               <p className="text-[#D4A373] font-medium tracking-widest mb-2 uppercase text-sm">Chương trình khách hàng thân thiết</p>
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">Nốt Nhạc Phê La</h1>
+              <h1 className="text-4xl md:text-5xl font-bold mb-4 !text-white" style={{ color: '#ffffff' }}>Nốt Nhạc Phê La</h1>
               <div className="flex items-center gap-3 bg-white/10 w-fit px-4 py-2 rounded-full backdrop-blur-sm">
                 <FiAward className="text-[#D4A373]" />
                 <span className="font-medium">Hạng {tierInfo.name}</span>
@@ -123,7 +126,7 @@ const MembershipDashboard = () => {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 -mt-12">
+      <div className="max-w-5xl mx-auto px-6 -mt-12 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Quick Stats */}
           <motion.div
@@ -188,7 +191,7 @@ const MembershipDashboard = () => {
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${item.type === 'EARN' ? 'bg-green-50 text-green-600' :
-                          item.type === 'REDEEM' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+                        item.type === 'REDEEM' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                         }`}>
                         {item.type === 'EARN' ? <FiArrowUpRight size={20} /> : <FiArrowDownLeft size={20} />}
                       </div>
@@ -204,7 +207,7 @@ const MembershipDashboard = () => {
                     </div>
                     <div className="text-right">
                       <p className={`text-lg font-bold ${item.type === 'EARN' ? 'text-green-600' :
-                          item.type === 'REDEEM' ? 'text-amber-600' : 'text-blue-600'
+                        item.type === 'REDEEM' ? 'text-amber-600' : 'text-blue-600'
                         }`}>
                         {item.type === 'EARN' ? '+' : '-'}{item.amount}
                       </p>

@@ -2,8 +2,8 @@ package com.example.be_phela.interService;
 
 import com.example.be_phela.dto.request.JobPostingCreateDTO;
 import com.example.be_phela.dto.request.JobPostingUpdateDTO;
+import com.example.be_phela.dto.response.ApplicationResponseDTO;
 import com.example.be_phela.dto.response.JobPostingDTO;
-import com.example.be_phela.model.Application;
 import com.example.be_phela.model.JobPosting;
 import com.example.be_phela.model.enums.ApplicationStatus;
 import com.example.be_phela.model.enums.JobStatus;
@@ -13,7 +13,7 @@ import java.util.List;
 public interface IJobPostingService {
     // Application related methods
     void approveApplication(String jobPostingId, String applicationId);
-    Application getApplicationDetails(String jobPostingId, String applicationId);
+    ApplicationResponseDTO getApplicationDetails(String jobPostingId, String applicationId);
     void updateApplicationStatus(String jobPostingId, String applicationId, ApplicationStatus status);
     long countApplications(String jobPostingId);
 

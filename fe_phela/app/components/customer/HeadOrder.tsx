@@ -40,7 +40,7 @@ const HeadOrder = () => {
     return () => {
       window.removeEventListener('cartUpdated', fetchCartCount);
     };
-  }, [user]);
+  }, [user?.id]);
 
   return (
     <header className="bg-[#FCF8F1] text-[#2C1E16] py-3 px-6 shadow-sm relative z-[100] border-b border-[#E5D5C5]">

@@ -58,6 +58,7 @@ const adminRoutes: RouteConfig = [
         route("danh-muc", "routes/category.tsx"),
         route("don-hang", "routes/orderManage.tsx"),
         route("don-hang/:orderId", "routes/orderDetailReport.tsx"),
+        route("khieu-nai", "routes/complaintManagement.tsx"),
         route("bao-cao-don-hang", "routes/orderReport.tsx"),
         route("doanh-thu", "routes/revenue.tsx"),
         route("bao-cao-chi-nhanh", "routes/branchRevenue.tsx"),
@@ -73,6 +74,7 @@ const adminRoutes: RouteConfig = [
         route("support", "routes/support.tsx"),
         route("ma-giam-gia", "routes/voucherManage.tsx"),
         route("ai-management", "routes/aiManagement.tsx"),
+        route("cai-dat", "routes/systemSettings.tsx"),
       ])
 ];
 

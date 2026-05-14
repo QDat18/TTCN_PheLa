@@ -28,7 +28,14 @@ const MyOrders = () => {
         if (user && user.type === 'customer' && user.customerId) {
             try {
                 const response = await api.get(`/api/order/customer/${user.customerId}`);
-                setOrders(response.data);
+                const data = response.data;
+                if (data && Array.isArray(data.content)) {
+                    setOrders(data.content);
+                } else if (Array.isArray(data)) {
+                    setOrders(data);
+                } else {
+                    setOrders([]);
+                }
             } catch (err: any) {
                 console.error("Lỗi khi tải lịch sử đơn hàng:", err);
                 setError(err.response?.data?.message || "Không thể tải được lịch sử đơn hàng.");

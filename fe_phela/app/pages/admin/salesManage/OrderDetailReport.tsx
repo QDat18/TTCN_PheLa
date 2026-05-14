@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import api from '~/config/axios';
-import { IoCopyOutline, IoQrCodeOutline, IoCheckmarkCircleOutline, IoPrintOutline } from 'react-icons/io5';
+import { IoCopyOutline, IoQrCodeOutline, IoCheckmarkCircleOutline, IoPrintOutline, IoArrowBackOutline } from 'react-icons/io5';
 import { toast } from 'react-toastify';
 import logo from "../../../assets/images/logo.png";
 
@@ -86,7 +86,7 @@ const OrderDetailReport = () => {
                 productId,
                 productName: 'Sản phẩm không xác định',
                 originalPrice: 0,
-                imageUrl: '/images/default-product.png' 
+                imageUrl: '/images/default-product.png'
             };
         }
     };
@@ -103,7 +103,7 @@ const OrderDetailReport = () => {
                 ]);
 
                 let orderData: Order = orderRes.data;
-                
+
                 // SỬA LỖI: Gắn thông tin sản phẩm vào một biến mới
                 const itemsWithProducts = await Promise.all(
                     orderData.orderItems.map(async (item) => {
@@ -111,7 +111,7 @@ const OrderDetailReport = () => {
                         return { ...item, product };
                     })
                 );
-                
+
                 // Cập nhật lại orderData với danh sách sản phẩm đầy đủ
                 orderData.orderItems = itemsWithProducts;
 
@@ -143,7 +143,7 @@ const OrderDetailReport = () => {
     const handlePrint = () => {
         window.print();
     };
-    
+
     const getStatusText = (status: string) => {
         const statuses = {
             PENDING: 'Chờ xác nhận',
@@ -175,23 +175,27 @@ const OrderDetailReport = () => {
     return (
         <div className="py-8">
             <div className="container mx-auto px-4">
+                <div className="mb-4 print:hidden">
+                    <Link to="/admin/don-hang" className="inline-flex items-center text-gray-600 hover:text-[#8C5A35] transition-colors gap-2 font-medium">
+                        <IoArrowBackOutline /> Quay lại trang đơn hàng
+                    </Link>
+                </div>
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-4">
                         <h1 className="text-2xl font-bold text-gray-800">
                             Chi tiết đơn hàng #{order.orderCode}
                         </h1>
-                        <button 
+                        <button
                             onClick={handlePrint}
                             className="bg-white border-2 border-primary text-primary px-4 py-2 rounded-lg hover:bg-primary hover:text-white transition-all flex items-center gap-2 font-bold group print:hidden"
                         >
                             <IoPrintOutline className="group-hover:scale-110 transition-transform" /> In hóa đơn
                         </button>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
-                        order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                        'bg-blue-100 text-blue-800'
-                    }`}>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                            order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                                'bg-blue-100 text-blue-800'
+                        }`}>
                         {getStatusText(order.status)}
                     </span>
                 </div>
@@ -206,8 +210,8 @@ const OrderDetailReport = () => {
                             <div className="space-y-4">
                                 {order.orderItems.map((item, index) => (
                                     <div key={index} className="flex items-start border-b pb-4 last:border-b-0">
-                                        <img 
-                                            src={item.product?.imageUrl || '/images/default-product.png'} 
+                                        <img
+                                            src={item.product?.imageUrl || '/images/default-product.png'}
                                             alt={item.product?.productName}
                                             className="w-16 h-16 object-cover rounded-md mr-4"
                                         />
@@ -221,12 +225,12 @@ const OrderDetailReport = () => {
                                     </div>
                                 ))}
                             </div>
-                            
+
                             {/* Tổng kết đơn hàng */}
                             <div className="mt-6 pt-4 border-t space-y-2">
                                 <div className="flex justify-between"><span className="text-gray-600">Tổng tiền hàng:</span><span className="font-medium">{order.totalAmount.toLocaleString()} VND</span></div>
                                 <div className="flex justify-between"><span className="text-gray-600">Phí vận chuyển:</span><span className="font-medium">{order.shippingFee.toLocaleString()} VND</span></div>
-                                
+
                                 {order.notesUsed > 0 && (
                                     <div className="flex justify-between text-primary">
                                         <span className="flex items-center gap-1 font-bold">♫ Đã dùng {order.notesUsed} nốt nhạc:</span>
@@ -278,13 +282,31 @@ const OrderDetailReport = () => {
                                 <p><strong className="font-medium text-gray-600">Địa chỉ:</strong> {`${order.address.detailedAddress}, ${order.address.ward}, ${order.address.district}, ${order.address.city}`}</p>
                             </div>
                         </div>
-                         <div className="bg-white rounded-xl shadow-md p-6">
+                        <div className="bg-white rounded-xl shadow-md p-6">
                             <h2 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">
                                 Thông tin thanh toán
                             </h2>
-                             <div className="space-y-2 text-sm">
+                            <div className="space-y-2 text-sm">
                                 <p><strong className="font-medium text-gray-600">Phương thức:</strong> {getPaymentMethodText(order.paymentMethod)}</p>
-                                 <p><strong className="font-medium text-gray-600">Trạng thái:</strong> {order.paymentStatus.replace('_', ' ')}</p>
+                                <p><strong className="font-medium text-gray-600">Trạng thái:</strong> {order.paymentStatus.replace('_', ' ')}</p>
+                                
+                                {order.paymentStatus !== 'COMPLETED' && (
+                                     <button
+                                         onClick={async () => {
+                                             if (!window.confirm('Xác nhận khách hàng ĐÃ CHUYỂN KHOẢN thành công cho đơn hàng này?')) return;
+                                             try {
+                                                 await api.post(`/api/order/${order.orderId}/confirm-payment`);
+                                                 toast.success('Xác nhận thanh toán thủ công thành công!');
+                                                 setOrder({...order, paymentStatus: 'COMPLETED'});
+                                             } catch (error: any) {
+                                                 toast.error(`Lỗi: ${error.response?.data?.message || 'Không thể cập nhật thanh toán'}`);
+                                             }
+                                         }}
+                                         className="mt-3 w-full bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center justify-center gap-2 print:hidden"
+                                     >
+                                         <IoCheckmarkCircleOutline size={18} /> Xác nhận Đã thanh toán
+                                     </button>
+                                )}
                             </div>
                         </div>
 
@@ -295,7 +317,7 @@ const OrderDetailReport = () => {
                                 </h2>
                                 <div className="space-y-4">
                                     <div className="bg-white p-2 rounded-xl border-2 border-gray-100 flex justify-center">
-                                        <img 
+                                        <img
                                             src={`https://img.vietqr.io/image/970422-5555501082005-compact2.png?amount=${order.finalAmount}&addInfo=${getPaymentDescription(order.orderCode)}&accountName=HOANG%20QUANG%20DAT`}
                                             alt="SePay QR"
                                             className="w-full max-w-[200px] aspect-square rounded-lg"
@@ -303,24 +325,24 @@ const OrderDetailReport = () => {
                                     </div>
                                     <div className="space-y-3">
                                         <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                                          <p className="text-[10px] uppercase font-black text-blue-600 mb-1">Nội dung chuyển khoản</p>
-                                          <div className="flex justify-between items-center">
-                                            <span className="font-mono font-black text-blue-900 tracking-wider">
-                                              {getPaymentDescription(order.orderCode)}
-                                            </span>
-                                            <button 
-                                              onClick={() => copyToClipboard(getPaymentDescription(order.orderCode), 'Nội dung')}
-                                              className="p-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all"
-                                            >
-                                              <IoCopyOutline size={14} />
-                                            </button>
-                                          </div>
+                                            <p className="text-[10px] uppercase font-black text-blue-600 mb-1">Nội dung chuyển khoản</p>
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-mono font-black text-blue-900 tracking-wider">
+                                                    {getPaymentDescription(order.orderCode)}
+                                                </span>
+                                                <button
+                                                    onClick={() => copyToClipboard(getPaymentDescription(order.orderCode), 'Nội dung')}
+                                                    className="p-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all"
+                                                >
+                                                    <IoCopyOutline size={14} />
+                                                </button>
+                                            </div>
                                         </div>
-                                        
+
                                         <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                          <p className="text-[10px] uppercase font-black text-gray-500 mb-1 italic leading-tight">
-                                            * Lưu ý: Khi khách quét mã này, hệ thống sẽ tự động duyệt tiền sau 1 phút.
-                                          </p>
+                                            <p className="text-[10px] uppercase font-black text-gray-500 mb-1 italic leading-tight">
+                                                * Lưu ý: Khi khách quét mã này, hệ thống sẽ tự động duyệt tiền sau 1 phút.
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -377,7 +399,7 @@ const OrderDetailReport = () => {
                     <div className="border-t-2 border-black border-dashed mt-4 pt-4 space-y-1 text-[11px]">
                         <div className="flex justify-between"><span>Tạm tính:</span><span>{order.totalAmount.toLocaleString()}</span></div>
                         <div className="flex justify-between"><span>Phí ship:</span><span>{(order.shippingFee || 0).toLocaleString()}</span></div>
-                        
+
                         {order.notesUsed > 0 && (
                             <div className="flex justify-between font-bold">
                                 <span>Giảm Nốt nhạc ({order.notesUsed}):</span>
@@ -403,10 +425,10 @@ const OrderDetailReport = () => {
                     <p className="text-[11px] mb-2 uppercase font-bold">
                         Trạng thái: {order.paymentMethod === 'COD' ? 'Thanh toán khi nhận hàng (COD)' : 'Đã chuyển khoản'}
                     </p>
-                    
+
                     {order.paymentMethod === 'COD' && order.paymentStatus !== 'COMPLETED' && (
                         <div className="mt-4 pt-4 border-t border-dashed border-gray-400">
-                           <img 
+                            <img
                                 src={`https://img.vietqr.io/image/970422-5555501082005-compact2.png?amount=${order.finalAmount}&addInfo=${getPaymentDescription(order.orderCode)}&accountName=HOANG%20QUANG%20DAT`}
                                 alt="QR SePay"
                                 className="w-48 h-48 mx-auto"
@@ -424,7 +446,8 @@ const OrderDetailReport = () => {
                 </div>
             </div>
 
-            <style dangerouslySetInnerHTML={{ __html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 @media print {
                     body * { visibility: hidden; }
                     #printable-bill, #printable-bill * { visibility: visible; }
