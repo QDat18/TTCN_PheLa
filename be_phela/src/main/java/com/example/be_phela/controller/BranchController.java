@@ -37,7 +37,7 @@ public class BranchController {
 
     @GetMapping("/api/branch")
     public ResponseEntity<List<BranchResponseDTO>> getAllBranches() {
-        List<Branch> branches = branchService.getAllBranches();
+        List<Branch> branches = branchService.getActiveBranches();
         List<BranchResponseDTO> branchDTOs = branches.stream()
                 .map(branchMapper::toBranchRepositoryDTO)
                 .collect(Collectors.toList());
@@ -69,7 +69,7 @@ public class BranchController {
 
     @GetMapping("/api/branch/by-city")
     public ResponseEntity<List<BranchResponseDTO>> findBranchesByCity(@RequestParam String city) {
-        List<Branch> branches = branchService.findBranchesByCity(city);
+        List<Branch> branches = branchService.findActiveBranchesByCity(city);
         List<BranchResponseDTO> branchDTOs = branches.stream()
                 .map(branchMapper::toBranchRepositoryDTO)
                 .collect(Collectors.toList());
@@ -78,7 +78,7 @@ public class BranchController {
 
     @GetMapping("/api/branch/by-district")
     public ResponseEntity<List<BranchResponseDTO>> findBranchesByDistrict(@RequestParam String district) {
-        List<Branch> branches = branchService.findBranchesByDistrict(district);
+        List<Branch> branches = branchService.findActiveBranchesByDistrict(district);
         List<BranchResponseDTO> branchDTOs = branches.stream()
                 .map(branchMapper::toBranchRepositoryDTO)
                 .collect(Collectors.toList());

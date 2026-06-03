@@ -25,7 +25,8 @@ public class SystemSettingService {
         return repository.findAll().stream()
                 .collect(Collectors.toMap(
                         SystemSetting::getSettingKey,
-                        s -> s.getSettingValue() != null ? s.getSettingValue() : ""
+                        s -> s.getSettingValue() != null ? s.getSettingValue() : "",
+                        (existing, replacement) -> existing // Giữ giá trị đầu tiên nếu trùng key
                 ));
     }
 

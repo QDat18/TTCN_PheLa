@@ -52,23 +52,8 @@
           "link": "/admin/store",
           "subMenu": []
         },
-         {
-          "id":7,
-          "title": "Tuyển dụng",
-          "link": "/admin/tin-tuyen-dung",
-          "subMenu": [
-            {
-              "title": "Tin tuyển dụng",
-              "link": "/admin/tin-tuyen-dung"
-            },
-            {
-              "title": "Ứng viên",
-              "link": "/admin/ung-vien"
-            }
-          ]
-        },
         {
-          "id":8,
+          "id":7,
           "title": "Khác",
           "link": "/admin/tin-tuc-admin",
           "subMenu": [
@@ -87,17 +72,16 @@
           ]
         },
          {
-          "id":9,
+          "id":8,
           "title": "Hỗ trợ",
           "link": "/admin/support",
           "subMenu": []
         },
         {
-          "id":10,
+          "id":9,
           "title": "Cài đặt",
           "link": "/admin/cai-dat",
           "subMenu": []
         }
       ]
   }
-  

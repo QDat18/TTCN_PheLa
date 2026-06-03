@@ -78,11 +78,13 @@ const AdminLayout: React.FC = () => {
   // 3. LOGIC WEBSOCKET THÔNG BÁO
   useEffect(() => {
     if (user && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'STAFF')) {
+      const token = localStorage.getItem('token');
       const client = new Client({
         webSocketFactory: () => {
           const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8081';
           return new SockJS(`${apiUrl}/ws`);
         },
+        connectHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
         onConnect: () => {
           console.log('Admin notifications WebSocket connected');
           client.subscribe('/topic/notifications/ADMIN', (message: any) => {
@@ -235,17 +237,7 @@ const AdminLayout: React.FC = () => {
                             ))}
                           </div>
                         )}
-                        {searchResults.jobPostings?.length > 0 && (
-                          <div className="mb-2">
-                            <div className="px-3 py-1 bg-[#FDF5E6] text-[10px] font-black uppercase text-[#8C5A35]">Tin tuyển dụng</div>
-                            {searchResults.jobPostings.map((j: any) => (
-                              <Link key={j.jobPostingId} to={`/admin/job-posting`} onClick={() => setShowSearchDropdown(false)} className="block px-3 py-2 hover:bg-gray-50 transition-colors">
-                                <div className="text-xs font-bold">{j.title}</div>
-                                <div className="text-[10px] text-gray-500">{j.jobCode} • {j.status}</div>
-                              </Link>
-                            ))}
-                          </div>
-                        )}
+                      
                       </>
                     )}
                   </div>

@@ -89,7 +89,8 @@ public class SecurityConfig {
                         "/api/categories/**", "/api/banner/**", "/api/banners/**",
                         "/api/contacts/**", "/api/applications/**", "/api/news/**",
                         "/api/job-postings/**", "/api/branch/**", "/api/vouchers/**",
-                        "/api/ai/**", "/api/payment/payment-return", "/api/payment/payment-cancel",
+                        "/api/settings/**",
+                        "/api/payment/payment-return", "/api/payment/payment-cancel",
                         "/api/payment/payos-webhook", "/api/webhooks/**", "/ws/**",
                         "/login/oauth2/**", "/oauth2/**", "/error"
                 ).permitAll();
@@ -98,8 +99,8 @@ public class SecurityConfig {
                 registry.requestMatchers("/api/admin/**")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN", "ROLE_STAFF");
 
-                // ===== CỬA CUSTOMER: dùng Token Supabase (được xác thực bởi oauth2ResourceServer) =====
-                registry.requestMatchers("/api/customer/**")
+                // ===== CỬA CUSTOMER & AI: dùng Token Supabase (được xác thực bởi oauth2ResourceServer) =====
+                registry.requestMatchers("/api/customer/**", "/api/ai/**")
                         .hasAnyAuthority("ROLE_CUSTOMER", "ROLE_ADMIN", "ROLE_authenticated");
 
                 registry.anyRequest().authenticated();

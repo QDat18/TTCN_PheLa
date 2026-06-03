@@ -3,9 +3,11 @@ package com.example.be_phela.service;
 import com.example.be_phela.model.Branch;
 import com.example.be_phela.model.Product;
 import com.example.be_phela.model.Voucher;
+import com.example.be_phela.model.SystemSetting;
 import com.example.be_phela.repository.BranchRepository;
 import com.example.be_phela.repository.ProductRepository;
 import com.example.be_phela.repository.VoucherRepository;
+import com.example.be_phela.repository.SystemSettingRepository;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -25,6 +27,7 @@ public class AiKnowledgeService {
     private final ProductRepository productRepository;
     private final VoucherRepository voucherRepository;
     private final BranchRepository branchRepository;
+    private final SystemSettingRepository systemSettingRepository;
     private final EmbeddingModel embeddingModel;
 
     private final EmbeddingStore<TextSegment> embeddingStore;
@@ -35,15 +38,23 @@ public class AiKnowledgeService {
             ProductRepository productRepository,
             VoucherRepository voucherRepository,
             BranchRepository branchRepository,
+            SystemSettingRepository systemSettingRepository,
             EmbeddingModel embeddingModel,
             EmbeddingStore<TextSegment> embeddingStore,
             JdbcTemplate jdbcTemplate) {
         this.productRepository = productRepository;
         this.voucherRepository = voucherRepository;
         this.branchRepository = branchRepository;
+        this.systemSettingRepository = systemSettingRepository;
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    public boolean isKnowledgeDirty() {
+        return systemSettingRepository.findById("ai.knowledge_dirty")
+                .map(s -> "true".equalsIgnoreCase(s.getSettingValue()))
+                .orElse(false);
     }
 
     public void syncKnowledgeBase() {
@@ -61,7 +72,13 @@ public class AiKnowledgeService {
             log.info("Indexing Branches...");
             indexBranches();
 
-            log.info("AI Knowledge Base synchronized successfully!");
+            // Clear dirty flag
+            SystemSetting setting = systemSettingRepository.findById("ai.knowledge_dirty")
+                    .orElse(new SystemSetting("ai.knowledge_dirty", "false", "ai", "AI Knowledge base dirty flag"));
+            setting.setSettingValue("false");
+            systemSettingRepository.save(setting);
+
+            log.info("AI Knowledge Base synchronized successfully and dirty flag cleared!");
         } catch (Exception e) {
             log.error("Failed to synchronize AI Knowledge Base", e);
             throw new RuntimeException("Lỗi khi đồng bộ Knowledge Base: " + e.getMessage());

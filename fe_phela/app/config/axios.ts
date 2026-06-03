@@ -24,12 +24,11 @@ const RETRY_DELAY = 1000;
 // - Customer: dùng token Supabase (lấy qua supabase.auth.getSession())
 api.interceptors.request.use(
   async (config) => {
-    const storedUserRaw = localStorage.getItem('user');
-    const storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
+    const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
 
-    if (storedUser?.type === 'admin') {
-      // Admin: gắn JWT nội bộ từ localStorage
-      const adminToken = localStorage.getItem('token');
+    if (isAdminPath) {
+      // Admin: gắn JWT nội bộ từ admin_token hoặc token
+      const adminToken = localStorage.getItem('admin_token') || localStorage.getItem('token');
       if (adminToken) {
         config.headers.Authorization = `Bearer ${adminToken}`;
       }
@@ -39,8 +38,8 @@ api.interceptors.request.use(
       if (session?.access_token) {
         config.headers.Authorization = `Bearer ${session.access_token}`;
       } else {
-        // Fallback: dùng token trong localStorage nếu Supabase session không có
-        const localToken = localStorage.getItem('token');
+        // Fallback: dùng token trong customer_token hoặc token
+        const localToken = localStorage.getItem('customer_token') || localStorage.getItem('token');
         if (localToken) {
           config.headers.Authorization = `Bearer ${localToken}`;
         }

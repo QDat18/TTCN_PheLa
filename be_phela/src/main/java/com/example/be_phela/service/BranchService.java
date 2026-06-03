@@ -84,6 +84,8 @@ public class BranchService implements IBranchService {
         existingBranch.setDistrict(updatedBranchDTO.getDistrict());
         existingBranch.setAddress(updatedBranchDTO.getAddress());
         existingBranch.setStatus(updatedBranchDTO.getStatus() != null ? updatedBranchDTO.getStatus() : ProductStatus.SHOW);
+        existingBranch.setOpeningTime(updatedBranchDTO.getOpeningTime() != null ? updatedBranchDTO.getOpeningTime() : "07:00");
+        existingBranch.setClosingTime(updatedBranchDTO.getClosingTime() != null ? updatedBranchDTO.getClosingTime() : "23:00");
         Branch savedBranch = branchRepository.save(existingBranch);
         log.info("Branch updated successfully with code: {}", savedBranch.getBranchCode());
         return savedBranch;
@@ -115,6 +117,27 @@ public class BranchService implements IBranchService {
     @Override
     public List<Branch> getAllBranches() {
         return branchRepository.findAll();
+    }
+
+    /**
+     * Chỉ trả các chi nhánh có status SHOW cho public API.
+     */
+    public List<Branch> getActiveBranches() {
+        return branchRepository.findByStatus(ProductStatus.SHOW);
+    }
+
+    /**
+     * Tìm chi nhánh theo thành phố - chỉ trả SHOW.
+     */
+    public List<Branch> findActiveBranchesByCity(String city) {
+        return branchRepository.findByStatusAndCityContainsIgnoreCase(ProductStatus.SHOW, city);
+    }
+
+    /**
+     * Tìm chi nhánh theo quận/huyện - chỉ trả SHOW.
+     */
+    public List<Branch> findActiveBranchesByDistrict(String district) {
+        return branchRepository.findByStatusAndDistrictContainsIgnoreCase(ProductStatus.SHOW, district);
     }
 
     @Override

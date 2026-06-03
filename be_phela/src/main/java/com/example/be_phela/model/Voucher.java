@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "vouchers")
+@EntityListeners(com.example.be_phela.model.listener.AiKnowledgeDirtyListener.class)
 public class Voucher {
     public Voucher() {}
 

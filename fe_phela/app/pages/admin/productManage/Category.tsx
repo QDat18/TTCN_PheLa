@@ -56,7 +56,7 @@ const Category = () => {
           categoryName: item.categoryName,
           description: item.description || '',
         })));
-        setTotalPages(data.totalPages);
+        setTotalPages(data.page?.totalPages ?? data.totalPages ?? 1);
       } else {
         setCategories(data.map((item: any) => ({
           categoryCode: item.categoryCode,

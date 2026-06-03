@@ -63,8 +63,10 @@ function Header() {
   useEffect(() => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8081';
     if (user && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'STAFF')) {
+      const token = user.token || localStorage.getItem('token');
       const client = new Client({
         webSocketFactory: () => new SockJS(`${apiUrl}/ws`),
+        connectHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
         onConnect: () => {
           console.log('Notification WebSocket connected');
           // Subscribe to admin notifications
@@ -204,17 +206,7 @@ function Header() {
                       ))}
                     </div>
                   )}
-                  {searchResults.jobPostings?.length > 0 && (
-                    <div className="mb-2">
-                      <div className="px-3 py-1 bg-[#FDF5E6] text-[10px] font-black uppercase text-[#8C5A35]">Tuyển dụng</div>
-                      {searchResults.jobPostings.map((j: any) => (
-                        <Link key={j.jobPostingId} to={`/admin/job-posting`} className="block px-3 py-2 hover:bg-gray-50 transition-colors">
-                          <div className="text-xs font-bold">{j.title}</div>
-                          <div className="text-[10px] text-gray-500">{j.location} • {j.status}</div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+                  
                   {searchResults.branches?.length > 0 && (
                     <div className="mb-2">
                       <div className="px-3 py-1 bg-[#FDF5E6] text-[10px] font-black uppercase text-[#8C5A35]">Cửa hàng</div>

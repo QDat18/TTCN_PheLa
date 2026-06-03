@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiHome, FiPackage, FiShoppingBag, FiBarChart2,
-  FiTag, FiUsers, FiMapPin, FiBriefcase,
+  FiTag, FiUsers, FiMapPin,
   FiMoreHorizontal, FiHelpCircle, FiChevronDown,
   FiX, FiMenu, FiSettings
 } from 'react-icons/fi';
@@ -27,10 +27,9 @@ const iconMap: Record<number, React.ElementType> = {
   4: FiTag, // Khuyến mãi
   5: FiUsers, // Nhân viên
   6: FiMapPin, // Cửa hàng
-  7: FiBriefcase, // Tuyển dụng
-  8: FiMoreHorizontal, // Khác
-  9: FiHelpCircle, // Hỗ trợ
-  10: FiSettings // Cài đặt
+  7: FiMoreHorizontal, // Khác
+  8: FiHelpCircle, // Hỗ trợ
+  9: FiSettings // Cài đặt
 };
 
 const AdminSidebar: React.FC<SidebarProps> = ({
@@ -58,8 +57,8 @@ const AdminSidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
 
   const roleMenus: Record<string, number[]> = {
-    'SUPER_ADMIN': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    'ADMIN': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    'SUPER_ADMIN': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    'ADMIN': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   };
 
   const allowedMenus = roleMenus[user?.role || ''] || [];

@@ -9,9 +9,19 @@ import { FiLock } from 'react-icons/fi';
 const AiManagement = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('lastAiSync'));
+  const [isDirty, setIsDirty] = useState<boolean>(false);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [unauthorized, setUnauthorized] = useState<boolean>(false);
+
+  const fetchStatus = async () => {
+    try {
+      const response = await api.get('/api/admin/ai/knowledge-status');
+      setIsDirty(response.data.dirty);
+    } catch (err) {
+      console.error('Failed to fetch AI knowledge status:', err);
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -20,6 +30,7 @@ const AiManagement = () => {
       setUnauthorized(true);
       return;
     }
+    fetchStatus();
   }, [user, authLoading]);
 
   const handleSyncKnowledge = async () => {
@@ -29,6 +40,7 @@ const AiManagement = () => {
       const now = new Date().toLocaleString('vi-VN');
       setLastSync(now);
       localStorage.setItem('lastAiSync', now);
+      setIsDirty(false);
       toast.success('Đồng bộ tri thức AI thành công!');
     } catch (error: any) {
       console.error('Sync error:', error);
@@ -75,9 +87,25 @@ const AiManagement = () => {
             
             <div className="relative z-10">
               <h2 className="text-2xl font-black text-[#2C1E16] uppercase mb-4 tracking-tight">Cơ sở tri thức (Knowledge Base)</h2>
-              <p className="text-gray-500 text-sm leading-relaxed mb-10 max-w-md">
+              <p className="text-gray-500 text-sm leading-relaxed mb-6 max-w-md">
                 Bộ não của AI sử dụng dữ liệu từ danh mục sản phẩm, câu chuyện thương hiệu và chính sách dịch vụ để hỗ trợ khách hàng. Hãy đồng bộ khi có thông tin mới cập nhật.
               </p>
+
+              {isDirty ? (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-800 animate-pulse">
+                  <FaExclamationTriangle className="text-amber-500 flex-shrink-0 animate-bounce" size={20} />
+                  <div className="text-xs font-bold leading-normal">
+                    Dữ liệu Sản phẩm, Voucher hoặc Chi nhánh đã thay đổi! Hãy nhấn cập nhật tri thức ngay để AI nhận dạng chính xác.
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center gap-3 text-green-800">
+                  <FaRegCheckCircle className="text-green-500 flex-shrink-0" size={20} />
+                  <div className="text-xs font-bold leading-normal">
+                    Tri thức AI đồng bộ hoàn toàn với cơ sở dữ liệu thực tế.
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-8">
                 <button
@@ -135,8 +163,8 @@ const AiManagement = () => {
               <p className="text-xs text-gray-500 leading-relaxed">Cấu hình tính cách (Persona) và quyền hạn dữ liệu của AI Concierge khi tương tác với khách hàng.</p>
            </div>
            <div className="bg-white/50 backdrop-blur-sm p-8 rounded-3xl border border-white/50 shadow-sm hover:bg-white transition-all cursor-pointer">
-              <h3 className="text-sm font-black text-[#8C5A35] uppercase tracking-widest mb-4">Sàng lọc Tuyển dụng</h3>
-              <p className="text-xs text-gray-500 leading-relaxed">Điều chỉnh tiêu chí (Criteria) đánh giá CV và thang điểm cho các vị trí tuyển dụng khác nhau.</p>
+              <h3 className="text-sm font-black text-[#8C5A35] uppercase tracking-widest mb-4">Phân tích Doanh thu</h3>
+              <p className="text-xs text-gray-500 leading-relaxed">Phân tích xu hướng doanh thu, dự đoán nhu cầu sản phẩm và đề xuất chiến lược kinh doanh dựa trên dữ liệu.</p>
            </div>
            <div className="bg-[#E5D5C5]/20 p-8 rounded-3xl border border-dashed border-[#8C5A35]/30 flex flex-col items-center justify-center text-center">
               <FaExclamationTriangle className="text-[#8C5A35] opacity-20 mb-3" size={32} />

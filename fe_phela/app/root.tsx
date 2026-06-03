@@ -15,7 +15,7 @@ import { toastContainerConfig } from './utils/notificationConfig';
 import { AnimatePresence } from 'framer-motion';
 import GlobalLoading from './components/common/GlobalLoading';
 import PageTransition from './components/common/PageTransition';
-import AiConcierge from './components/customer/AiConcierge';
+import UnifiedSupportWidget from './components/customer/UnifiedSupportWidget';
 import { isCustomerUser } from "./AuthContext";
 
 import type { Route } from "./+types/root";
@@ -93,7 +93,7 @@ const AppWithAuth = () => {
           <Outlet />
         </PageTransition>
       </AnimatePresence>
-      {user && isCustomerUser(user) && <AiConcierge />}
+      {user && isCustomerUser(user) && <UnifiedSupportWidget />}
     </>
   );
 };

@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 @Entity(name = "branch")
+@EntityListeners(com.example.be_phela.model.listener.AiKnowledgeDirtyListener.class)
 public class Branch {
     @Id
     @NotNull(message = "Branch code is required")
@@ -35,6 +36,12 @@ public class Branch {
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
     private ProductStatus status;
+
+    @Column(name = "opening_time")
+    private String openingTime = "07:00";
+
+    @Column(name = "closing_time")
+    private String closingTime = "23:00";
 
     @JsonIgnore
     @OneToMany(mappedBy = "branch", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
@@ -71,6 +78,12 @@ public class Branch {
     public ProductStatus getStatus() { return status; }
     public void setStatus(ProductStatus status) { this.status = status; }
 
+    public String getOpeningTime() { return openingTime; }
+    public void setOpeningTime(String openingTime) { this.openingTime = openingTime; }
+
+    public String getClosingTime() { return closingTime; }
+    public void setClosingTime(String closingTime) { this.closingTime = closingTime; }
+
     public List<Admin> getAdmins() { return admins; }
     public void setAdmins(List<Admin> admins) { this.admins = admins; }
 
@@ -91,6 +104,8 @@ public class Branch {
         private String district;
         private String address;
         private ProductStatus status;
+        private String openingTime = "07:00";
+        private String closingTime = "23:00";
 
         public BranchBuilder branchCode(String branchCode) { this.branchCode = branchCode; return this; }
         public BranchBuilder branchName(String branchName) { this.branchName = branchName; return this; }
@@ -100,6 +115,8 @@ public class Branch {
         public BranchBuilder district(String district) { this.district = district; return this; }
         public BranchBuilder address(String address) { this.address = address; return this; }
         public BranchBuilder status(ProductStatus status) { this.status = status; return this; }
+        public BranchBuilder openingTime(String openingTime) { this.openingTime = openingTime; return this; }
+        public BranchBuilder closingTime(String closingTime) { this.closingTime = closingTime; return this; }
 
         public Branch build() {
             Branch b = new Branch();
@@ -111,6 +128,8 @@ public class Branch {
             b.setDistrict(this.district);
             b.setAddress(this.address);
             b.setStatus(this.status);
+            b.setOpeningTime(this.openingTime);
+            b.setClosingTime(this.closingTime);
             return b;
         }
     }

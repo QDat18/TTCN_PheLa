@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import Login from "./LoginCus";
 import Register from "./RegisterCus";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FiArrowLeft } from "react-icons/fi";
+import { useAuth } from "~/AuthContext";
 
 // --- DANH SÁCH ẢNH PR PHÊ LA ---
 // Tạm thời mình để ảnh mẫu chất lượng cao. 
@@ -17,6 +18,16 @@ const PR_IMAGES = [
 const LoginRegister = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+    const { user, loading } = useAuth();
+    const navigate = useNavigate();
+
+    // Redirect if already logged in
+    useEffect(() => {
+        if (!loading && user) {
+            navigate('/');
+        }
+    }, [user, loading, navigate]);
 
     // Xử lý logic tự động chuyển ảnh mỗi 5 giây
     useEffect(() => {

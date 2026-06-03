@@ -13,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -66,18 +65,29 @@ public class ChatController {
 
     @MessageMapping("/chat.sendMessage")
     public void sendMessage(@Payload ChatMessage chatMessage, Principal principal) {
-        // Lấy thông tin người dùng đang gửi tin nhắn từ context bảo mật
-        UserDetails user = (UserDetails) principal;
+        if (principal == null) {
+            throw new org.springframework.security.authentication.BadCredentialsException("Unauthenticated connection");
+        }
 
-        // Điền thông tin người gửi một cách an toàn từ server
-        if (user instanceof Customer) {
-            Customer customer = (Customer) user;
+        org.springframework.security.core.Authentication auth = (org.springframework.security.core.Authentication) principal;
+        
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || 
+                               a.getAuthority().equals("ROLE_SUPER_ADMIN") || 
+                               a.getAuthority().equals("ROLE_STAFF"));
+
+        if (isAdmin) {
+            String username = auth.getName();
+            Admin admin = adminRepository.findByUsername(username)
+                    .orElseThrow(() -> new IllegalArgumentException("Admin not found: " + username));
+            chatMessage.setSenderId("ADMIN");
+            chatMessage.setSenderName(admin.getFullname());
+        } else {
+            String customerId = auth.getName();
+            Customer customer = customerRepository.findById(customerId)
+                    .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
             chatMessage.setSenderId(customer.getCustomerId());
             chatMessage.setSenderName(customer.getUsername());
-        } else if (user instanceof Admin) {
-            Admin admin = (Admin) user;
-            chatMessage.setSenderId("ADMIN"); // Dùng một ID chung cho admin hoặc admin.getId()
-            chatMessage.setSenderName(admin.getFullname());
         }
 
         chatMessage.setTimestamp(LocalDateTime.now());
@@ -85,7 +95,7 @@ public class ChatController {
 
         // 1. Xác định ID của khách hàng trong cuộc hội thoại này
         String customerIdInConversation;
-        if (user instanceof Customer) {
+        if (!isAdmin) {
             // Nếu người gửi là khách hàng, ID chính là của họ
             customerIdInConversation = chatMessage.getSenderId();
         } else {

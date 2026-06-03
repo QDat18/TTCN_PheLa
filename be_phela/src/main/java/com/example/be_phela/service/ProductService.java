@@ -131,6 +131,22 @@ public class ProductService implements IProductService {
         return productRepository.findAll(pageable);
     }
 
+    /**
+     * Chỉ trả sản phẩm có status SHOW cho public API.
+     */
+    public Page<Product> getActiveProducts(Pageable pageable) {
+        return productRepository.findByStatus(ProductStatus.SHOW, pageable);
+    }
+
+    /**
+     * Lấy sản phẩm theo danh mục - chỉ trả SHOW cho public.
+     */
+    public List<Product> getActiveProductsByCategory(String categoryCode) {
+        return productRepository.findByCategory_CategoryCode(categoryCode).stream()
+                .filter(p -> p.getStatus() == ProductStatus.SHOW)
+                .toList();
+    }
+
     @Override
     public Product getProductByCode(String productCode) {
         return productRepository.findByProductCode(productCode)

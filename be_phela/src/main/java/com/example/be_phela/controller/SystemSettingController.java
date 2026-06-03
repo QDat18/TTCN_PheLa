@@ -51,8 +51,12 @@ public class SystemSettingController {
      * Yêu cầu role ADMIN hoặc SUPER_ADMIN
      */
     @GetMapping
-    public ResponseEntity<Map<String, String>> getAllSettings() {
-        return ResponseEntity.ok(settingService.getAllSettings());
+    public ResponseEntity<?> getAllSettings() {
+        try {
+            return ResponseEntity.ok(settingService.getAllSettings());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to fetch settings: " + e.getMessage()));
+        }
     }
 
     /**
@@ -61,23 +65,27 @@ public class SystemSettingController {
      * Dùng để hiển thị trạng thái cấu hình trên Admin UI
      */
     @GetMapping("/payment-env")
-    public ResponseEntity<Map<String, Object>> getPaymentEnvConfig() {
-        Map<String, Object> config = new LinkedHashMap<>();
+    public ResponseEntity<?> getPaymentEnvConfig() {
+        try {
+            Map<String, Object> config = new LinkedHashMap<>();
 
-        // PayOS - mask sensitive values, chỉ hiện trạng thái đã cấu hình chưa
-        config.put("payos.client_id_configured",   !payosClientId.isBlank());
-        config.put("payos.api_key_configured",      !payosApiKey.isBlank());
-        config.put("payos.checksum_configured",     !payosChecksumKey.isBlank());
-        config.put("payos.return_url",              payosReturnUrl);
-        config.put("payos.cancel_url",              payosCancelUrl);
+            // PayOS - mask sensitive values, chỉ hiện trạng thái đã cấu hình chưa
+            config.put("payos.client_id_configured",   payosClientId != null && !payosClientId.isBlank());
+            config.put("payos.api_key_configured",      payosApiKey != null && !payosApiKey.isBlank());
+            config.put("payos.checksum_configured",     payosChecksumKey != null && !payosChecksumKey.isBlank());
+            config.put("payos.return_url",              payosReturnUrl != null ? payosReturnUrl : "");
+            config.put("payos.cancel_url",              payosCancelUrl != null ? payosCancelUrl : "");
 
-        // SePay - từ ENV (tham chiếu, không override DB settings)
-        config.put("env.sepay_api_key_configured",  !sepayApiKey.isBlank());
-        config.put("env.bank_id",                   bankId);
-        config.put("env.account_no",                bankAccountNo);
-        config.put("env.account_name",              bankAccountName);
+            // SePay - từ ENV (tham chiếu, không override DB settings)
+            config.put("env.sepay_api_key_configured",  sepayApiKey != null && !sepayApiKey.isBlank());
+            config.put("env.bank_id",                   bankId != null ? bankId : "");
+            config.put("env.account_no",                bankAccountNo != null ? bankAccountNo : "");
+            config.put("env.account_name",              bankAccountName != null ? bankAccountName : "");
 
-        return ResponseEntity.ok(config);
+            return ResponseEntity.ok(config);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to fetch payment env config: " + e.getMessage()));
+        }
     }
 
     /**

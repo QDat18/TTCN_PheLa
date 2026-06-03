@@ -35,6 +35,8 @@ interface Address {
   phone: string;
   detailedAddress: string;
   isDefault: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface Branch {
@@ -61,6 +63,7 @@ const Cart = () => {
 
   const cartIdRef = useRef<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const noteDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchProductDetails = async (productId: string): Promise<Product> => {
     try {
@@ -295,47 +298,67 @@ const Cart = () => {
   };
 
   const updateNote = async (cartItemId: string, type: 'đường' | 'đá', value: string) => {
+    const itemToUpdate = cartItems.find(item => item.cartItemId === cartItemId);
+    if (!itemToUpdate) return;
+
+    // 1. Calculate new note
+    let sugarLevel = '100% đường';
+    let iceLevel = '100% đá';
+
+    if (itemToUpdate.note) {
+      const parts = itemToUpdate.note.split(', ');
+      parts.forEach(part => {
+        if (part.includes('đường')) sugarLevel = part;
+        if (part.includes('đá')) iceLevel = part;
+      });
+    }
+
+    if (type === 'đường') {
+      sugarLevel = `${value}% đường`;
+    } else {
+      iceLevel = `${value}% đá`;
+    }
+
+    const newNote = `${sugarLevel}, ${iceLevel}`;
+
+    // 2. Optimistic UI Update
+    setCartItems(prevItems => prevItems.map(item => 
+      item.cartItemId === cartItemId ? { ...item, note: newNote } : item
+    ));
+
     if (!user || user.type !== 'customer') return;
 
-    try {
-      const customerId = user.customerId;
-      const cartResponse = await api.get(`/api/customer/cart/getCustomer/${customerId}`);
-      const cartId = cartResponse.data.cartId;
-
-      const itemToUpdate = cartItems.find(item => item.cartItemId === cartItemId);
-      if (!itemToUpdate) return;
-
-      let sugarLevel = '100% đường';
-      let iceLevel = '100% đá';
-
-      if (itemToUpdate.note) {
-        const parts = itemToUpdate.note.split(', ');
-        parts.forEach(part => {
-          if (part.includes('đường')) sugarLevel = part;
-          if (part.includes('đá')) iceLevel = part;
-        });
-      }
-
-      if (type === 'đường') {
-        sugarLevel = `${value}% đường`;
-      } else {
-        iceLevel = `${value}% đá`;
-      }
-
-      const newNote = `${sugarLevel}, ${iceLevel}`;
-
-      await api.post(`/api/customer/cart/${cartId}/items`, {
-        productId: itemToUpdate.productId,
-        productSizeId: itemToUpdate.productSizeId,
-        toppingIds: itemToUpdate.selectedToppings?.map(t => t.productId) || [],
-        quantity: itemToUpdate.quantity,
-        note: newNote
-      });
-
-      await updateFullCartState(customerId);
-    } catch (err: any) {
-      toast.error(`Có lỗi khi cập nhật: ${err.response?.data?.message || err.message}`);
+    // 3. Debounced API Call
+    if (noteDebounceTimerRef.current) {
+      clearTimeout(noteDebounceTimerRef.current);
     }
+
+    noteDebounceTimerRef.current = setTimeout(async () => {
+      try {
+        const customerId = user.customerId;
+        let cartId = cartIdRef.current;
+
+        if (!cartId) {
+          const cartResponse = await api.get(`/api/customer/cart/getCustomer/${customerId}`);
+          cartId = cartResponse.data.cartId;
+          cartIdRef.current = cartId;
+        }
+
+        await api.post(`/api/customer/cart/${cartId}/items`, {
+          productId: itemToUpdate.productId,
+          productSizeId: itemToUpdate.productSizeId,
+          toppingIds: itemToUpdate.selectedToppings?.map(t => t.productId) || [],
+          quantity: itemToUpdate.quantity,
+          note: newNote
+        });
+
+        // Sync with server state
+        await updateFullCartState(customerId);
+      } catch (err: any) {
+        toast.error(`Có lỗi khi cập nhật: ${err.response?.data?.message || err.message}`);
+        updateFullCartState(user.customerId);
+      }
+    }, 500);
   };
 
   if (loading) {
@@ -555,7 +578,9 @@ const Cart = () => {
                     <span className="text-[#2C1E16] font-black">{totalAmount.toLocaleString()}₫</span>
                   </div>
                   <div className="flex justify-between items-center hover:text-[#2C1E16] transition-colors">
-                    <span>Phí giao hàng <span className="text-[10px] bg-[#FDF5E6] px-2 py-1 rounded-full ml-2 text-[#8C5A35] border border-[#8C5A35]/20">{distance > 0 ? `${distance.toFixed(1)}km` : 'N/A'}</span></span>
+                    <span>Phí giao hàng <span className="text-[10px] bg-[#FDF5E6] px-2 py-1 rounded-full ml-2 text-[#8C5A35] border border-[#8C5A35]/20">
+                      {distance > 0 ? `${distance.toFixed(1)}km` : (selectedAddress?.latitude ? 'Đang tính...' : 'Cần tọa độ')}
+                    </span></span>
                     <span className="text-[#2C1E16] font-black">{shippingFee.toLocaleString()}₫</span>
                   </div>
                 </div>

@@ -69,6 +69,7 @@ const Payment = () => {
   const [customerNotes, setCustomerNotes] = useState<number>(0);
   const [useNotes, setUseNotes] = useState(false);
   const [notesToRedeem, setNotesToRedeem] = useState(0);
+  const [noteRate, setNoteRate] = useState(1000);
 
   const fetchCustomerNotes = useCallback(async () => {
     if (user && user.username) {
@@ -81,15 +82,25 @@ const Payment = () => {
     }
   }, [user]);
 
+  const fetchLoyaltyConfig = useCallback(async () => {
+    try {
+      const response = await api.get('/api/settings/loyalty');
+      setNoteRate(response.data.note_value_vnd || 1000);
+    } catch (err) {
+      console.error("Error fetching loyalty config:", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCustomerNotes();
-  }, [fetchCustomerNotes]);
+    fetchLoyaltyConfig();
+  }, [fetchCustomerNotes, fetchLoyaltyConfig]);
 
   const handleToggleNotes = (checked: boolean) => {
     setUseNotes(checked);
     if (checked) {
       const currentFinal = (cart?.totalAmount || 0) + (cart?.shippingFee || 0) - discountAmount;
-      const maxNotesPossible = Math.floor(currentFinal / 1000);
+      const maxNotesPossible = Math.floor(currentFinal / noteRate);
       const actualNotesToUse = Math.min(customerNotes, maxNotesPossible);
       setNotesToRedeem(actualNotesToUse);
     } else {
@@ -189,7 +200,7 @@ const Payment = () => {
         // Adjust points if they exceed the new total
         if (useNotes) {
           const newFinal = (cart?.totalAmount || 0) + (cart?.shippingFee || 0) - discount;
-          const maxNotesPossible = Math.floor(newFinal / 1000);
+          const maxNotesPossible = Math.floor(newFinal / noteRate);
           if (notesToRedeem > maxNotesPossible) {
             setNotesToRedeem(Math.min(customerNotes, maxNotesPossible));
           }
@@ -247,7 +258,7 @@ const Payment = () => {
           // Adjust points if they exceed the new total
           if (useNotes) {
             const newFinal = (cart?.totalAmount || 0) + (cart?.shippingFee || 0) - discount;
-            const maxNotesPossible = Math.floor(newFinal / 1000);
+            const maxNotesPossible = Math.floor(newFinal / noteRate);
             if (notesToRedeem > maxNotesPossible) {
               setNotesToRedeem(Math.min(customerNotes, maxNotesPossible));
             }
@@ -269,7 +280,7 @@ const Payment = () => {
 
     try {
       const customerUser = user as import('~/AuthContext').CustomerUser;
-      const pointsDiscount = useNotes ? notesToRedeem * 1000 : 0;
+      const pointsDiscount = useNotes ? notesToRedeem * noteRate : 0;
       
       const orderPayload = {
         customerId: customerUser.customerId,
@@ -418,7 +429,7 @@ const Payment = () => {
                        <span className="text-xs font-black text-[#8C5A35]">{customerNotes.toLocaleString()} ♫</span>
                     </div>
                     <div className="flex items-center justify-between">
-                       <p className="text-[9px] font-medium opacity-80 max-w-[180px]">Dùng nốt nhạc để giảm giá trực tiếp (1 nốt = 1.000₫)</p>
+                       <p className="text-[9px] font-medium opacity-80 max-w-[180px]">Dùng nốt nhạc để giảm giá trực tiếp (1 nốt = {noteRate.toLocaleString()}₫)</p>
                        <label className="relative inline-flex items-center cursor-pointer">
                          <input 
                            type="checkbox" 
@@ -437,7 +448,7 @@ const Payment = () => {
                         className="mt-3 pt-3 border-t border-[#FCF8F1]/10 flex justify-between items-center"
                       >
                          <span className="text-[9px] font-black uppercase text-[#8C5A35]">Đang dùng: {notesToRedeem} nốt</span>
-                         <span className="text-[10px] font-black">-{(notesToRedeem * 1000).toLocaleString()} ₫</span>
+                         <span className="text-[10px] font-black">-{(notesToRedeem * noteRate).toLocaleString()} ₫</span>
                       </motion.div>
                     )}
                   </div>
@@ -455,7 +466,7 @@ const Payment = () => {
                   {useNotes && (
                     <div className="flex justify-between text-[#8C5A35] mt-2">
                       <span className="flex items-center gap-1">♫ Giảm giá nốt nhạc:</span>
-                      <span>-{(notesToRedeem * 1000).toLocaleString()} ₫</span>
+                      <span>-{(notesToRedeem * noteRate).toLocaleString()} ₫</span>
                     </div>
                   )}
 
@@ -500,7 +511,7 @@ const Payment = () => {
 
                   <div className="flex justify-between items-end pt-6 border-t border-[#E5D5C5] mt-6">
                     <span className="text-sm text-[#2C1E16] font-black">Thành tiền:</span>
-                    <span className="text-3xl font-black text-[#8C5A35] tracking-tighter normal-case">{(cart.totalAmount + cart.shippingFee - discountAmount).toLocaleString()}₫</span>
+                    <span className="text-3xl font-black text-[#8C5A35] tracking-tighter normal-case">{(cart.totalAmount + cart.shippingFee - discountAmount - (useNotes ? notesToRedeem * noteRate : 0)).toLocaleString()}₫</span>
                   </div>
                 </div>
 

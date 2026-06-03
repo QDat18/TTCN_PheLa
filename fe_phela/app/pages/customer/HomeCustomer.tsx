@@ -5,7 +5,6 @@ import { getLatestActiveBanners } from '~/services/bannerService';
 import Header from '~/components/customer/Header'
 import Footer from '~/components/customer/Footer'
 import home from '~/assets/images/home.jpg';
-import ChatWidget from '~/components/customer/ChatWidget';
 import { motion, AnimatePresence } from 'framer-motion';
 import ScrollReveal from '~/components/common/ScrollReveal';
 
@@ -51,7 +50,6 @@ const Home = () => {
     return (
         <div className="min-h-screen bg-[#FCF8F1]">
             <Header />
-            <ChatWidget />
 
             {/* Hero Slider Section - Full Height */}
             <div className="relative w-full h-[90vh] overflow-hidden bg-black">

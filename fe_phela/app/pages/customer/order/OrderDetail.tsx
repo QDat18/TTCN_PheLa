@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import HeadOrder from '~/components/customer/HeadOrder';
 import api from '~/config/axios';
 import { useAuth } from '~/AuthContext';
-import { FiChevronLeft, FiCheckCircle } from 'react-icons/fi';
+import { FiChevronLeft, FiCheckCircle, FiCopy } from 'react-icons/fi';
+import { IoTimeOutline } from 'react-icons/io5';
 import { confirmReceipt } from '~/services/orderService';
 import { toast, ToastContainer } from 'react-toastify';
 
@@ -43,7 +44,7 @@ interface Order {
     finalAmount: number;
     status: 'PENDING' | 'CONFIRMED' | 'DELIVERING' | 'DELIVERED' | 'CANCELLED';
     paymentMethod: 'COD' | 'BANK_TRANSFER' | 'SEPAY';
-    paymentStatus: 'PENDING' | 'AWAITING_PAYMENT' | 'COMPLETED' | 'FAILED';
+    paymentStatus: 'PENDING' | 'AWAITING_PAYMENT' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
     orderDate: string;
     notesUsed: number;
     notesEarned: number;
@@ -64,6 +65,43 @@ const OrderDetail = () => {
     const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
     const [complaint, setComplaint] = useState<any>(null);
 
+    // Refund fields (User input)
+    const [isRefundRequested, setIsRefundRequested] = useState(false);
+    const [bankName, setBankName] = useState('');
+    const [accountNumber, setAccountNumber] = useState('');
+    const [accountName, setAccountName] = useState('');
+    
+    // Payment QR logic
+    const QR_ACCOUNT_NUMBER = '5555501082005';
+    const QR_ACCOUNT_NAME = 'HOANG QUANG DAT';
+    const [timeLeft, setTimeLeft] = useState(600);
+    const [isExpired, setIsExpired] = useState(false);
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (order && !isExpired && timeLeft > 0 && 
+            (order.paymentMethod === 'SEPAY' || order.paymentMethod === 'BANK_TRANSFER') && 
+            order.paymentStatus === 'PENDING') {
+            timer = setInterval(() => {
+                setTimeLeft(prev => prev - 1);
+            }, 1000);
+        } else if (timeLeft === 0) {
+            setIsExpired(true);
+        }
+        return () => clearInterval(timer);
+    }, [order, timeLeft, isExpired]);
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleRefreshQR = () => {
+        setTimeLeft(600);
+        setIsExpired(false);
+    };
+
     const fetchProductDetails = async (productId: string): Promise<Product> => {
         try {
             const response = await api.get(`/api/product/get/${productId}`);
@@ -74,6 +112,7 @@ const OrderDetail = () => {
     };
 
     useEffect(() => {
+        let intervalId: NodeJS.Timeout;
         const fetchOrderDetails = async () => {
             if (!user) return;
             if (!orderId) {
@@ -94,6 +133,28 @@ const OrderDetail = () => {
                 );
                 orderData.orderItems = itemsWithProducts;
                 setOrder(orderData);
+
+                // If payment is pending and it's a bank transfer, start polling
+                if ((orderData.paymentMethod === 'SEPAY' || orderData.paymentMethod === 'BANK_TRANSFER') && 
+                    orderData.paymentStatus === 'PENDING' && 
+                    orderData.status !== 'CANCELLED') {
+                    
+                    setTimeLeft(600);
+                    setIsExpired(false);
+
+                    intervalId = setInterval(async () => {
+                        try {
+                            const pollRes = await api.get(`/api/order/${orderId}`);
+                            if (pollRes.data.paymentStatus === 'COMPLETED') {
+                                setOrder(prev => prev ? { ...prev, paymentStatus: 'COMPLETED', status: pollRes.data.status } : null);
+                                toast.success('Thanh toán thành công!');
+                                clearInterval(intervalId);
+                            }
+                        } catch (e) {
+                            console.error("Polling error", e);
+                        }
+                    }, 5000);
+                }
             } catch (err: any) {
                 setError(err.response?.data?.message || "Không thể tải được chi tiết đơn hàng.");
             } finally {
@@ -112,6 +173,9 @@ const OrderDetail = () => {
             }
         };
         fetchOrderDetails();
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
     }, [orderId, user]);
 
     const getStatusText = (status: Order['status']) => {
@@ -173,19 +237,38 @@ const OrderDetail = () => {
 
         setIsSubmittingComplaint(true);
         try {
+            let finalReason = complaintReason;
+            if (isRefundRequested) {
+                finalReason = `[YÊU CẦU HOÀN TIỀN]\n- Ngân hàng: ${bankName}\n- STK: ${accountNumber}\n- Chủ TK: ${accountName}\n- Lý do: ${complaintReason}`;
+            }
+
             const res = await api.post('/api/complaints', {
                 orderId: order?.orderId,
-                reason: complaintReason,
+                reason: finalReason,
                 evidenceImages: complaintImages,
             });
             toast.success('Gửi khiếu nại thành công! Chúng tôi sẽ phản hồi sớm nhất.');
             setComplaint(res.data);
             setShowComplaintModal(false);
+            // Reset form
+            setComplaintReason('');
+            setComplaintImages([]);
+            setIsRefundRequested(false);
+            setBankName('');
+            setAccountNumber('');
+            setAccountName('');
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Không thể gửi khiếu nại');
         } finally {
             setIsSubmittingComplaint(false);
         }
+    };
+
+    const copyToClipboard = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        toast.success(`Đã sao chép ${label}!`, { 
+            autoClose: 1500,
+        });
     };
 
     if (loading) return (
@@ -220,8 +303,26 @@ const OrderDetail = () => {
                     <div>
                         <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter italic">Đơn hàng <span className="text-[#8C5A35]">#{order.orderCode}</span></h1>
                         {complaint && (
-                            <div className="mt-2 text-xs font-bold bg-red-50 text-red-600 px-3 py-1 rounded-md border border-red-200 inline-flex items-center gap-2 uppercase tracking-widest">
-                                Trạng thái khiếu nại: {complaint.status}
+                            <div className="mt-4 p-4 bg-white rounded-2xl border border-[#E5D5C5] shadow-sm max-w-md">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] font-black text-[#5C4D43] uppercase tracking-widest">Tình trạng khiếu nại</span>
+                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black border uppercase tracking-widest ${
+                                        complaint.status === 'RESOLVED' ? 'bg-green-50 text-green-600 border-green-200' : 
+                                        complaint.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200'
+                                    }`}>
+                                        {complaint.status}
+                                    </span>
+                                </div>
+                                
+                                {complaint.status !== 'PENDING' && (
+                                    <div className="mt-3 pt-3 border-t border-[#E5D5C5] border-dashed">
+                                        <p className="text-[10px] font-black text-[#8C5A35] uppercase tracking-widest mb-1">Kết quả xử lý:</p>
+                                        <p className="text-sm font-bold text-[#2C1E16] mb-2">{complaint.resolutionType === 'REFUND' ? 'Đã hoàn tiền' : (complaint.resolutionType === 'COMPENSATION' ? 'Đền bù điểm' : complaint.resolutionType)}</p>
+                                        
+                                        <p className="text-[10px] font-black text-[#8C5A35] uppercase tracking-widest mb-1">Phản hồi từ cửa hàng:</p>
+                                        <p className="text-xs font-bold text-[#5C4D43] leading-relaxed italic">"{complaint.resolutionNotes}"</p>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -237,7 +338,16 @@ const OrderDetail = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm font-bold text-[#5C4D43]">
                         <p className="flex justify-between items-center"><span className="opacity-70">Ngày đặt hàng:</span> <span className="text-[#2C1E16]">{new Date(order.orderDate).toLocaleString('vi-VN')}</span></p>
                         <p className="flex justify-between items-center"><span className="opacity-70">Thanh toán:</span> <span className="text-[#2C1E16] bg-[#FCF8F1] px-3 py-1 rounded-md">{order.paymentMethod === 'COD' ? 'Khi nhận hàng' : 'Chuyển khoản'}</span></p>
-                        <p className="flex justify-between items-center"><span className="opacity-70">Trạng thái TT:</span> <span className={`${order.paymentStatus === 'COMPLETED' ? 'text-green-600 bg-green-50 border-green-200' : 'text-[#8C5A35] bg-[#FDF5E6] border-[#8C5A35]/20'} px-3 py-1 rounded-md border text-[11px] uppercase tracking-wider`}>{order.paymentStatus.replace('_', ' ')}</span></p>
+                        <p className="flex justify-between items-center"><span className="opacity-70">Trạng thái TT:</span> <span className={`${
+                            order.paymentStatus === 'COMPLETED' ? 'text-green-600 bg-green-50 border-green-200' : 
+                            order.paymentStatus === 'FAILED' ? 'text-red-500 bg-red-50 border-red-200' : 
+                            order.paymentStatus === 'REFUNDED' ? 'text-blue-600 bg-blue-50 border-blue-200' :
+                            'text-[#8C5A35] bg-[#FDF5E6] border-[#8C5A35]/20'
+                        } px-3 py-1 rounded-md border text-[11px] uppercase tracking-wider`}>
+                            {order.paymentStatus === 'FAILED' ? 'ĐÃ HỦY/LỖI' : 
+                             order.paymentStatus === 'REFUNDED' ? 'ĐÃ HOÀN TIỀN' :
+                             order.paymentStatus.replace('_', ' ')}
+                        </span></p>
                     </div>
 
                     {order.status === 'DELIVERING' && (
@@ -248,7 +358,7 @@ const OrderDetail = () => {
                         </div>
                     )}
 
-                    {order.status === 'PENDING' && order.paymentMethod === 'COD' && (
+                    {order.status === 'PENDING' && (
                         <div className="mt-8 pt-6 border-t border-dashed border-[#E5D5C5] text-right">
                             <button onClick={handleCancelOrder} className="px-8 py-3 bg-white border border-red-200 text-red-500 rounded-full font-black text-[10px] uppercase tracking-[0.2em] hover:bg-red-50 transition-all">
                                 Hủy đơn hàng
@@ -264,6 +374,103 @@ const OrderDetail = () => {
                         </div>
                     )}
                 </div>
+
+                {/* QR Payment Section */}
+                {(order.paymentMethod === 'SEPAY' || order.paymentMethod === 'BANK_TRANSFER') && 
+                 order.paymentStatus === 'PENDING' && 
+                 order.status !== 'CANCELLED' && (
+                    <div className="bg-white p-8 rounded-[2.5rem] border-4 border-[#1B4332]/20 shadow-xl mb-8 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#1B4332]/5 rounded-bl-full -mr-10 -mt-10"></div>
+                        <div className="flex flex-col md:flex-row gap-10 items-center">
+                            <div className="flex flex-col items-center gap-4 w-full md:w-auto">
+                                <div className="p-3 bg-white rounded-3xl shadow-sm border-2 border-[#EAE0D5] relative overflow-hidden">
+                                    <div className={`transition-all duration-500 ${isExpired ? 'grayscale opacity-20 blur-[2px]' : 'opacity-100'}`}>
+                                        <img 
+                                            src={`https://img.vietqr.io/image/970422-${QR_ACCOUNT_NUMBER}-compact2.png?amount=${order.finalAmount}&addInfo=${order.orderCode}&accountName=${encodeURIComponent(QR_ACCOUNT_NAME)}`} 
+                                            alt="VietQR" 
+                                            className="w-48 h-48 md:w-56 md:h-56 rounded-2xl"
+                                        />
+                                    </div>
+                                    
+                                    <div className="absolute -top-2 -left-2 bg-[#1B4332] text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Quét QR</div>
+                                    
+                                    {isExpired && (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                                            <p className="text-[10px] font-black text-[#2C1E16] uppercase tracking-widest mb-2">Hết hạn</p>
+                                            <button 
+                                                onClick={handleRefreshQR}
+                                                className="px-4 py-2 bg-[#1B4332] text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-[#2C1E16] transition-all"
+                                            >
+                                                Làm mới
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {!isExpired ? (
+                                    <div className="flex flex-col items-center gap-1 w-full bg-[#FCF8F1] p-3 rounded-2xl border border-[#1B4332]/10">
+                                        <span className="text-[9px] uppercase font-black text-[#5C4D43]/60 tracking-widest">Thời gian còn lại</span>
+                                        <div className="flex items-center gap-2 text-[#1B4332]">
+                                            <IoTimeOutline size={18} />
+                                            <span className="font-mono text-xl font-black">{formatTime(timeLeft)}</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 text-red-500">
+                                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Phiên đã kết thúc</span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="flex-1 space-y-5 w-full">
+                                <h3 className="text-xl font-black text-[#1B4332] uppercase tracking-tight flex items-center gap-2">
+                                    Thanh toán đơn hàng
+                                </h3>
+                                
+                                <div className="space-y-3">
+                                    <div className="bg-[#FCF8F1] p-4 rounded-2xl border border-[#E5D5C5]/50 flex justify-between items-center group hover:border-[#1B4332]/30 transition-all">
+                                        <div>
+                                            <p className="text-[10px] font-black text-[#5C4D43] uppercase tracking-widest mb-1 opacity-60">Số tiền</p>
+                                            <p className="text-xl font-black text-[#2C1E16]">{order.finalAmount.toLocaleString()}₫</p>
+                                        </div>
+                                        <button onClick={() => copyToClipboard(order.finalAmount.toString(), 'Số tiền')} className="p-2.5 bg-[#1B4332] text-white rounded-xl hover:bg-[#2C1E16] transition-all">
+                                            <FiCopy size={16} />
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-[#FCF8F1] p-4 rounded-2xl border border-[#E5D5C5]/50 flex justify-between items-center group hover:border-[#1B4332]/30 transition-all">
+                                        <div>
+                                            <p className="text-[10px] font-black text-[#5C4D43] uppercase tracking-widest mb-1 opacity-60">Số tài khoản (MB Bank)</p>
+                                            <p className="text-lg font-black text-[#2C1E16] tracking-widest">{QR_ACCOUNT_NUMBER}</p>
+                                            <p className="text-[10px] font-bold text-[#8C5A35] uppercase">{QR_ACCOUNT_NAME}</p>
+                                        </div>
+                                        <button onClick={() => copyToClipboard(QR_ACCOUNT_NUMBER, 'Số tài khoản')} className="p-2.5 bg-[#1B4332] text-white rounded-xl hover:bg-[#2C1E16] transition-all">
+                                            <FiCopy size={16} />
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-[#1B4332]/5 p-4 rounded-2xl border-2 border-dashed border-[#1B4332]/20 flex justify-between items-center group hover:border-[#1B4332]/40 transition-all">
+                                        <div>
+                                            <p className="text-[10px] font-black text-[#1B4332] uppercase tracking-widest mb-1">Nội dung bắt buộc</p>
+                                            <p className="text-lg font-black text-[#1B4332] tracking-tighter uppercase">{order.orderCode}</p>
+                                        </div>
+                                        <button onClick={() => copyToClipboard(order.orderCode, 'Nội dung')} className="p-2.5 bg-[#1B4332] text-white rounded-xl hover:bg-[#2C1E16] transition-all">
+                                            <FiCopy size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-start gap-2 p-3 bg-yellow-50 rounded-xl border border-yellow-100">
+                                    <IoTimeOutline className="text-yellow-600 mt-0.5" size={16} />
+                                    <p className="text-[10px] font-bold text-yellow-700 italic">
+                                        Lưu ý: Bạn cần ghi đúng nội dung chuyển khoản để hệ thống xác nhận tự động. Đơn hàng sẽ bị hủy nếu không thanh toán trong thời gian quy định.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                     <div className="bg-white p-8 rounded-[2rem] border border-[#E5D5C5] shadow-sm h-full">
@@ -369,10 +576,61 @@ const OrderDetail = () => {
                                     required
                                     value={complaintReason}
                                     onChange={(e) => setComplaintReason(e.target.value)}
-                                    rows={4}
+                                    rows={3}
                                     className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8C5A35]/30 focus:border-[#8C5A35] text-sm text-[#2C1E16] placeholder:text-[#5C4D43]/40"
                                     placeholder="Sản phẩm bị lỗi, thiếu món, v.v..."
                                 />
+                            </div>
+
+                            <div className="mb-6 bg-white p-4 rounded-2xl border border-[#E5D5C5]">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isRefundRequested}
+                                        onChange={(e) => setIsRefundRequested(e.target.checked)}
+                                        className="w-4 h-4 accent-[#8C5A35]"
+                                    />
+                                    <span className="text-xs font-black text-[#8C5A35] uppercase tracking-widest">Tôi muốn yêu cầu hoàn tiền</span>
+                                </label>
+
+                                {isRefundRequested && (
+                                    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-[#5C4D43] uppercase tracking-widest mb-1">Tên ngân hàng *</label>
+                                            <input
+                                                required={isRefundRequested}
+                                                type="text"
+                                                value={bankName}
+                                                onChange={(e) => setBankName(e.target.value)}
+                                                className="w-full px-4 py-2 bg-[#FCF8F1] border border-[#E5D5C5] rounded-lg text-sm"
+                                                placeholder="VD: Vietcombank, MB Bank..."
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-black text-[#5C4D43] uppercase tracking-widest mb-1">Số tài khoản *</label>
+                                                <input
+                                                    required={isRefundRequested}
+                                                    type="text"
+                                                    value={accountNumber}
+                                                    onChange={(e) => setAccountNumber(e.target.value)}
+                                                    className="w-full px-4 py-2 bg-[#FCF8F1] border border-[#E5D5C5] rounded-lg text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-[#5C4D43] uppercase tracking-widest mb-1">Chủ tài khoản *</label>
+                                                <input
+                                                    required={isRefundRequested}
+                                                    type="text"
+                                                    value={accountName}
+                                                    onChange={(e) => setAccountName(e.target.value)}
+                                                    className="w-full px-4 py-2 bg-[#FCF8F1] border border-[#E5D5C5] rounded-lg text-sm"
+                                                    placeholder="VIET HOA KHONG DAU"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mb-6">

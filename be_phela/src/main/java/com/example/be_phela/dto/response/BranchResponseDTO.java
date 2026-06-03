@@ -22,6 +22,8 @@ public class BranchResponseDTO {
     Double latitude;
     Double longitude;
     ProductStatus status;
+    String openingTime;
+    String closingTime;
 
     // Manual Getters
     public String getBranchCode() { return branchCode; }
@@ -32,6 +34,8 @@ public class BranchResponseDTO {
     public Double getLatitude() { return latitude; }
     public Double getLongitude() { return longitude; }
     public ProductStatus getStatus() { return status; }
+    public String getOpeningTime() { return openingTime; }
+    public String getClosingTime() { return closingTime; }
 
     // Manual Builder (Fix for Lombok issues in Service)
     public static BranchResponseDTOBuilder builder() {
@@ -47,6 +51,8 @@ public class BranchResponseDTO {
         private Double latitude;
         private Double longitude;
         private ProductStatus status;
+        private String openingTime;
+        private String closingTime;
 
         public BranchResponseDTOBuilder branchCode(String branchCode) { this.branchCode = branchCode; return this; }
         public BranchResponseDTOBuilder branchName(String branchName) { this.branchName = branchName; return this; }
@@ -56,9 +62,11 @@ public class BranchResponseDTO {
         public BranchResponseDTOBuilder latitude(Double latitude) { this.latitude = latitude; return this; }
         public BranchResponseDTOBuilder longitude(Double longitude) { this.longitude = longitude; return this; }
         public BranchResponseDTOBuilder status(ProductStatus status) { this.status = status; return this; }
+        public BranchResponseDTOBuilder openingTime(String openingTime) { this.openingTime = openingTime; return this; }
+        public BranchResponseDTOBuilder closingTime(String closingTime) { this.closingTime = closingTime; return this; }
 
         public BranchResponseDTO build() {
-            return new BranchResponseDTO(branchCode, branchName, city, district, address, latitude, longitude, status);
+            return new BranchResponseDTO(branchCode, branchName, city, district, address, latitude, longitude, status, openingTime, closingTime);
         }
     }
 }

@@ -53,7 +53,7 @@ const ProductManage = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [unauthorized, setUnauthorized] = useState<boolean>(false);
   const navigate = useNavigate();
-  
+
 
   useEffect(() => {
     if (authLoading) return;
@@ -113,7 +113,7 @@ const ProductManage = () => {
       }));
 
       setProducts(fetchedProducts);
-      setTotalPages(data.totalPages || 1);
+      setTotalPages(data.page?.totalPages ?? data.totalPages ?? 1);
     } catch (error: any) {
       console.error('Error fetching products:', error.response ? error.response.data : error.message);
       setError('Không thể tải danh sách sản phẩm. Vui lòng thử lại.');
@@ -263,7 +263,7 @@ const ProductManage = () => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
   };
 
-   if (authLoading) {
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center h-[500px]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-600"></div>
@@ -445,51 +445,75 @@ const ProductManage = () => {
                 </table>
               </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                  <div className="flex-1 flex justify-between sm:hidden">
+              {/* Improved Pagination Section */}
+              {totalPages > 0 && (
+                <div className="bg-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between border-t border-gray-100 gap-4">
+                  {/* Text Information */}
+                  <div className="text-sm text-gray-600">
+                    Hiển thị trang <span className="font-semibold text-gray-900">{currentPage + 1}</span> trên <span className="font-semibold text-gray-900">{totalPages}</span> trang
+                  </div>
+
+                  {/* Pagination Actions */}
+                  <div className="flex items-center space-x-1.5">
+                    {/* Previous Button */}
                     <button
                       onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 0))}
                       disabled={currentPage === 0 || loading || isModalOpen}
-                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-primary "
+                      className="inline-flex items-center justify-center h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed"
                     >
-                      Trước
+                      <FiChevronLeft className="h-4 w-4 mr-1.5" />
+                      <span className="hidden sm:inline">Trước</span>
                     </button>
+
+                    {/* Page Numbers */}
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: totalPages }, (_, i) => i).map((page) => {
+                        if (
+                          totalPages <= 7 ||
+                          page === 0 ||
+                          page === totalPages - 1 ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        ) {
+                          const isActive = currentPage === page;
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              disabled={loading || isModalOpen}
+                              className={`inline-flex items-center justify-center h-9 w-9 text-sm font-medium rounded-lg transition-all duration-150 ${isActive
+                                  ? 'bg-amber-600 text-white font-semibold shadow-sm shadow-amber-600/20'
+                                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
+                                }`}
+                            >
+                              {page + 1}
+                            </button>
+                          );
+                        } else if (
+                          (page === 1 && currentPage > 2) ||
+                          (page === totalPages - 2 && currentPage < totalPages - 3)
+                        ) {
+                          return (
+                            <span
+                              key={page}
+                              className="inline-flex items-center justify-center h-9 w-9 text-sm text-gray-400 select-none"
+                            >
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+
+                    {/* Next Button */}
                     <button
                       onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages - 1))}
                       disabled={currentPage === totalPages - 1 || loading || isModalOpen}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-primary"
+                      className="inline-flex items-center justify-center h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 disabled:opacity-40 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed"
                     >
-                      Sau
+                      <span className="hidden sm:inline mr-1.5">Sau</span>
+                      <FiChevronRight className="h-4 w-4" />
                     </button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Trang <span className="font-medium">{currentPage + 1}</span> / <span className="font-medium">{totalPages}</span>
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <button
-                          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 0))}
-                          disabled={currentPage === 0 || loading || isModalOpen}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <span className="sr-only">Trước</span>
-                          <FiChevronLeft className="h-5 w-5" aria-hidden="true" />
-                        </button>
-                        <button
-                          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages - 1))}
-                          disabled={currentPage === totalPages - 1 || loading || isModalOpen}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <span className="sr-only">Sau</span>
-                          <FiChevronRight className="h-5 w-5" aria-hidden="true" />
-                        </button>
-                      </nav>
-                    </div>
                   </div>
                 </div>
               )}

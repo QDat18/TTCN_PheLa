@@ -1,395 +1,692 @@
-import React, { useState, useEffect, useRef } from 'react';
+/* fe_phela/app/pages/admin/Support.tsx */
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuth, isAdminUser } from '~/AuthContext';
-import { getConversations, getChatHistory } from '~/services/chatServices';
+import { 
+    getAdminConversations, 
+    getConversationMessages, 
+    assignConversation as assignConv, 
+    resolveConversation as resolveConv 
+} from '~/services/chatServices';
 import { API_BASE_URL } from '~/config/axios';
+import { toast } from 'react-toastify';
 
-interface ChatMessage {
+interface ConversationMessage {
     id?: string;
-    content?: string; // Có thể null nếu chỉ gửi ảnh
+    conversationId?: string;
     senderId: string;
-    recipientId: string;
     senderName: string;
-    timestamp: string;
-    imageUrl?: string; // Thêm trường này
+    senderType: 'CUSTOMER' | 'ADMIN' | 'AI' | 'SYSTEM';
+    content: string;
+    messageType: 'TEXT' | 'IMAGE' | 'PRODUCT_CARD' | 'VOUCHER_CARD' | 'SYSTEM';
+    imageUrl?: string;
+    metadataJson?: string;
+    createdAt?: string;
+    tempId?: string;
 }
 
 interface Conversation {
+    id: string;
     customerId: string;
     customerName: string;
-    messages: ChatMessage[];
+    customerEmail?: string;
+    customerPhone?: string;
+    status: 'AI_ACTIVE' | 'HANDOFF_REQUESTED' | 'HUMAN_ACTIVE' | 'RESOLVED';
+    source: 'AI' | 'HUMAN' | 'MIXED';
+    assignedAdminId?: string;
+    assignedAdminName?: string;
     lastMessage?: string;
+    lastMessageTimestamp?: string;
+}
+
+interface OrderItem {
+    productName: string;
+    quantity: number;
+    amount: number;
+}
+
+interface Order {
+    orderId: string;
+    totalAmount: number;
+    status: string;
+    createdAt: string;
+    items?: OrderItem[];
 }
 
 const Support = () => {
     const { user } = useAuth();
-    const [conversations, setConversations] = useState<Map<string, Conversation>>(new Map());
-    const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
+    const [messages, setMessages] = useState<ConversationMessage[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'ACTIVE' | 'RESOLVED'>('ALL');
     const [inputValue, setInputValue] = useState('');
-    const location = useLocation();
-    const stompClientRef = useRef<Client | null>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [loadingOrders, setLoadingOrders] = useState(false);
 
+    const stompClientRef = useRef<Client | null>(null);
+    const globalStompClientRef = useRef<Client | null>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
+    const location = useLocation();
+
+    // Safe helper function to format date times from both LocalDateTime array format and ISO string
+    const formatDateTime = (dateVal: any, timeOnly: boolean = false) => {
+        if (!dateVal) return '';
+        let d: Date;
+        if (Array.isArray(dateVal)) {
+            const [year, month, day, hour, minute, second] = dateVal;
+            // JavaScript Month is 0-indexed
+            d = new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, second || 0);
+        } else {
+            d = new Date(dateVal);
+        }
+        
+        if (isNaN(d.getTime())) return String(dateVal);
+        
+        if (timeOnly) {
+            return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        }
+        return d.toLocaleDateString('vi-VN');
+    };
+
+    const selectedConvRef = useRef<Conversation | null>(null);
+    selectedConvRef.current = selectedConv;
+
+    // Fetch conversations list from admin endpoint
+    const loadConversations = useCallback(async () => {
+        try {
+            const list = await getAdminConversations();
+            setConversations(list);
+
+            // Keep selected conversation up to date if it matches
+            const currentSelected = selectedConvRef.current;
+            if (currentSelected) {
+                const updated = list.find((c: Conversation) => c.id === currentSelected.id);
+                if (updated) {
+                    setSelectedConv(updated);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load admin conversations list:", err);
+        }
+    }, []);
+
+    // Initial load of conversations list
     useEffect(() => {
         if (user && isAdminUser(user)) {
-            const loadInitialConversations = async () => {
-                try {
-                    const convsSummary = await getConversations();
-                    setConversations(prev => {
-                        const newConvsMap = new Map(prev);
-                        for (const conv of convsSummary) {
-                            if (!newConvsMap.has(conv.customerId)) {
-                                newConvsMap.set(conv.customerId, {
-                                    customerId: conv.customerId,
-                                    customerName: conv.customerName,
-                                    lastMessage: conv.lastMessage,
-                                    messages: [],
-                                });
-                            }
-                        }
-                        return newConvsMap;
-                    });
-                } catch (error) {
-                    console.error("Failed to load initial conversations", error);
-                }
-            };
-            loadInitialConversations();
+            loadConversations();
+        }
+    }, [user, loadConversations]);
 
+    // WebSocket subscription for updates
+    useEffect(() => {
+        if (!user || !isAdminUser(user)) return;
+
+        const token = user.token || localStorage.getItem('token');
+        const client = new Client({
+            webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+            connectHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
+            onConnect: () => {
+                console.log('Admin connected to global conversations topic');
+                
+                // Subscribe to global updates
+                client.subscribe('/topic/admin/conversations/update', (msg) => {
+                    const updatedConv: Conversation = JSON.parse(msg.body);
+                    setConversations(prev => {
+                        const index = prev.findIndex(c => c.id === updatedConv.id);
+                        if (index > -1) {
+                            const next = [...prev];
+                            next[index] = updatedConv;
+                            return next;
+                        }
+                        return [updatedConv, ...prev];
+                    });
+
+                    // Update selected conversation in real-time
+                    setSelectedConv(curr => {
+                        if (curr && curr.id === updatedConv.id) {
+                            return updatedConv;
+                        }
+                        return curr;
+                    });
+                });
+            },
+            reconnectDelay: 5000,
+        });
+
+        client.activate();
+        globalStompClientRef.current = client;
+
+        return () => {
+            client.deactivate();
+            globalStompClientRef.current = null;
+        };
+    }, [user]);
+
+    // Scroll to bottom when new messages arrive
+    useEffect(() => {
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+    }, [messages]);
+
+    // Load selected conversation history & connect individual STOMP topic
+    const selectConversation = async (conv: Conversation) => {
+        setSelectedConv(conv);
+        setMessages([]);
+        setOrders([]);
+
+        // Disconnect previous individual STOMP subscription
+        if (stompClientRef.current) {
+            stompClientRef.current.deactivate();
+            stompClientRef.current = null;
+        }
+
+        try {
+            const msgs = await getConversationMessages(conv.id);
+            setMessages(msgs);
+
+            // Fetch order history for the customer
+            fetchCustomerOrders(conv.customerId);
+
+            // Connect individual topic for real-time messages
+            const token = user?.token || localStorage.getItem('token');
             const client = new Client({
                 webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+                connectHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
                 onConnect: () => {
-                    console.log('Admin connected!');
-                    client.subscribe('/topic/chat/**', (message) => {
-                        const receivedMessage: ChatMessage = JSON.parse(message.body);
-                        // Xác định customerId dựa trên senderId và recipientId
-                        const customerId = receivedMessage.senderId !== 'ADMIN' ? receivedMessage.senderId : receivedMessage.recipientId;
-
-                        setConversations(prev => {
-                            const newConvs = new Map(prev);
-                            const conv = newConvs.get(customerId);
-                            if (conv) {
-                                // Kiểm tra trùng lặp tin nhắn dựa trên id nếu có
-                                if (!receivedMessage.id || !conv.messages.some(msg => msg.id === receivedMessage.id)) {
-                                    conv.messages.push(receivedMessage);
-                                    conv.lastMessage = receivedMessage.content || receivedMessage.imageUrl ? "Đã gửi ảnh" : ""; // Cập nhật lastMessage
-                                }
-                            } else {
-                                newConvs.set(customerId, {
-                                    customerId,
-                                    customerName: receivedMessage.senderName, // Lấy tên từ tin nhắn đầu tiên
-                                    messages: [receivedMessage],
-                                    lastMessage: receivedMessage.content || receivedMessage.imageUrl ? "Đã gửi ảnh" : "",
-                                });
+                    console.log('Subscribed to individual conversation:', conv.id);
+                    client.subscribe(`/topic/conversations/${conv.id}`, (message) => {
+                        const receivedMsg: ConversationMessage = JSON.parse(message.body);
+                        setMessages((prev) => {
+                            const idx = prev.findIndex(m => 
+                                (receivedMsg.id && m.id === receivedMsg.id) ||
+                                (receivedMsg.tempId && m.tempId === receivedMsg.tempId)
+                            );
+                            if (idx > -1) {
+                                const next = [...prev];
+                                next[idx] = receivedMsg;
+                                return next;
                             }
-                            // Sắp xếp lại cuộc hội thoại để cuộc hội thoại mới nhất lên đầu
-                            return new Map([...newConvs.entries()].sort((a, b) => {
-                                const lastMsgA = a[1].messages[a[1].messages.length - 1]?.timestamp;
-                                const lastMsgB = b[1].messages[b[1].messages.length - 1]?.timestamp;
-                                if (!lastMsgA || !lastMsgB) return 0;
-                                return new Date(lastMsgB).getTime() - new Date(lastMsgA).getTime();
-                            }));
+                            return [...prev, receivedMsg];
                         });
                     });
-                },
-                onStompError: (frame) => {
-                    console.error('Broker reported error: ' + frame.headers['message']);
-                    console.error('Additional details: ' + frame.body);
                 },
                 reconnectDelay: 5000,
             });
 
             client.activate();
             stompClientRef.current = client;
-
-            return () => {
-                client.deactivate();
-                stompClientRef.current = null;
-                console.log('Admin disconnected!');
-            };
-        }
-    }, [user]);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [conversations, selectedCustomerId]);
-
-    // Handle automatic selection from notification
-    useEffect(() => {
-        const customerIdFromState = (location.state as any)?.customerId;
-        if (customerIdFromState && conversations.size > 0 && customerIdFromState !== selectedCustomerId) {
-            selectConversation(customerIdFromState);
-            // Clear state to avoid re-triggering if component re-mounts
-            window.history.replaceState({}, document.title);
-        }
-    }, [location.state, conversations, selectedCustomerId]);
-
-    const selectConversation = async (customerId: string) => {
-        setSelectedCustomerId(customerId);
-        const currentConv = conversations.get(customerId);
-        // Chỉ tải lịch sử nếu cuộc hội thoại chưa có tin nhắn hoặc có lỗi
-        if (currentConv && currentConv.messages.length === 0) {
-            try {
-                const history = await getChatHistory(customerId);
-                setConversations(prev => {
-                    const newConvs = new Map(prev);
-                    const conv = newConvs.get(customerId);
-                    if (conv) conv.messages = history;
-                    return newConvs;
-                });
-            } catch (error) {
-                console.error("Failed to load chat history for selected conversation", error);
-                // Xử lý lỗi, có thể thông báo cho người dùng
-            }
+        } catch (err) {
+            console.error("Error loading chat history:", err);
+            toast.error("Không thể tải lịch sử trò chuyện.");
         }
     };
 
+    // Load recent order history
+    const fetchCustomerOrders = async (customerId: string) => {
+        setLoadingOrders(true);
+        const token = user?.token || localStorage.getItem('token');
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/order/customer/${customerId}?page=0&size=5`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setOrders(data.content || []);
+            }
+        } catch (err) {
+            console.error("Error loading order history:", err);
+        } finally {
+            setLoadingOrders(false);
+        }
+    };
+
+    // Send Admin message
     const handleSendMessage = () => {
-        if (!user || !isAdminUser(user) || !inputValue.trim() || !selectedCustomerId || !stompClientRef.current?.connected) {
-            return;
-        }
+        if (!selectedConv || !inputValue.trim() || !user || !isAdminUser(user)) return;
 
-        const chatMessage: ChatMessage = {
+        const tempId = `admin_temp_${Date.now()}`;
+        const tempMsg: ConversationMessage = {
+            tempId,
+            senderId: user.username,
+            senderName: user.fullname || 'Nhân Viên',
+            senderType: 'ADMIN',
             content: inputValue,
-            senderId: 'ADMIN',
-            senderName: user.fullname || 'Admin',
-            recipientId: selectedCustomerId,
-            timestamp: new Date().toISOString(), // Server sẽ ghi đè, nhưng hữu ích cho hiển thị tạm thời
+            messageType: 'TEXT',
+            createdAt: new Date().toISOString()
         };
 
-        stompClientRef.current.publish({
-            destination: '/app/chat.sendMessage',
-            body: JSON.stringify(chatMessage),
-        });
+        // Instant append
+        setMessages(prev => [...prev, tempMsg]);
         setInputValue('');
+
+        if (stompClientRef.current?.connected) {
+            stompClientRef.current.publish({
+                destination: `/app/conversations/${selectedConv.id}/send`,
+                body: JSON.stringify(tempMsg)
+            });
+        } else {
+            toast.warn("Kết nối gián đoạn. Vui lòng gửi lại.");
+        }
     };
 
-    const handleImageSend = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
+    // Send Image message
+    const handleImageSend = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedConv || !user || !isAdminUser(user)) return;
 
-        if (!user || !isAdminUser(user) || !selectedCustomerId) {
-            console.error("Admin user not authenticated or no customer selected.");
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Kích thước ảnh không được vượt quá 5MB");
             return;
         }
 
-        // Hiển thị ảnh tạm thời trong UI ngay lập tức
-        const tempImageUrl = URL.createObjectURL(file);
-        const tempMessage: ChatMessage = {
-            id: `temp_${Date.now()}`, // ID tạm thời
-            content: "Đang gửi ảnh...",
-            senderId: 'ADMIN',
-            senderName: user.fullname || 'Admin',
-            recipientId: selectedCustomerId,
-            imageUrl: tempImageUrl,
-            timestamp: new Date().toISOString(),
+        const tempId = `admin_temp_${Date.now()}`;
+        const tempLocalUrl = URL.createObjectURL(file);
+        
+        const tempMsg: ConversationMessage = {
+            tempId,
+            senderId: user.username,
+            senderName: user.fullname || 'Nhân Viên',
+            senderType: 'ADMIN',
+            content: '',
+            messageType: 'IMAGE',
+            imageUrl: tempLocalUrl,
+            createdAt: new Date().toISOString()
         };
-        setConversations(prev => {
-            const newConvs = new Map(prev);
-            const conv = newConvs.get(selectedCustomerId);
-            if (conv) {
-                conv.messages.push(tempMessage);
-            }
-            return newConvs;
-        });
+
+        setMessages(prev => [...prev, tempMsg]);
 
         const formData = new FormData();
         formData.append('file', file);
 
+        const token = localStorage.getItem('token');
         try {
-            const response = await fetch(`${API_BASE_URL}/api/chat/uploadImage`, { // Cập nhật URL API
+            const res = await fetch(`${API_BASE_URL}/api/chat/uploadImage`, {
                 method: 'POST',
-                body: formData,
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to upload image');
-            }
-
-            const imageUrl = await response.text(); // Backend trả về URL từ Cloudinary
-            console.log("Uploaded image URL:", imageUrl);
+            if (!res.ok) throw new Error("Upload failed");
+            const uploadedUrl = await res.text();
 
             if (stompClientRef.current?.connected) {
-                const chatMessage: ChatMessage = {
-                    content: "",
-                    senderId: 'ADMIN',
-                    senderName: user.fullname || 'Admin',
-                    recipientId: selectedCustomerId,
-                    imageUrl: imageUrl, // Sử dụng URL từ Cloudinary
-                    timestamp: new Date().toISOString(),
+                const finalMsg: ConversationMessage = {
+                    tempId,
+                    senderId: user.username,
+                    senderName: user.fullname || 'Nhân Viên',
+                    senderType: 'ADMIN',
+                    content: '',
+                    messageType: 'IMAGE',
+                    imageUrl: uploadedUrl
                 };
+
                 stompClientRef.current.publish({
-                    destination: '/app/chat.sendMessage',
-                    body: JSON.stringify(chatMessage),
+                    destination: `/app/conversations/${selectedConv.id}/send`,
+                    body: JSON.stringify(finalMsg)
                 });
             }
-            // Xóa ảnh tạm thời sau khi gửi thành công
-            setConversations(prev => {
-                const newConvs = new Map(prev);
-                const conv = newConvs.get(selectedCustomerId);
-                if (conv) {
-                    conv.messages = conv.messages.filter(msg => msg.id !== tempMessage.id);
-                }
-                return newConvs;
-            });
-
-
-        } catch (error) {
-            console.error("Error uploading image for admin:", error);
-            // Xóa tin nhắn tạm thời và hiển thị lỗi
-            setConversations(prev => {
-                const newConvs = new Map(prev);
-                const conv = newConvs.get(selectedCustomerId);
-                if (conv) {
-                    conv.messages = conv.messages.filter(msg => msg.id !== tempMessage.id);
-                    conv.messages.push({
-                        id: `error_${Date.now()}`,
-                        content: "Gửi ảnh thất bại.",
-                        senderId: 'SYSTEM',
-                        senderName: "Hệ thống",
-                        recipientId: selectedCustomerId,
-                        timestamp: new Date().toISOString(),
-                    });
-                }
-                return newConvs;
-            });
-        } finally {
-            event.target.value = ''; // Reset input file
+        } catch (err) {
+            toast.error("Tải ảnh thất bại.");
+            setMessages(prev => prev.filter(m => m.tempId !== tempId));
         }
     };
 
-    const selectedConversation = selectedCustomerId ? conversations.get(selectedCustomerId) : null;
+    // Assign to me
+    const handleAssign = async () => {
+        if (!selectedConv) return;
+        try {
+            await assignConv(selectedConv.id);
+            toast.success("Đã tiếp nhận cuộc trò chuyện này.");
+            loadConversations();
+        } catch (err) {
+            toast.error("Tiếp nhận cuộc trò chuyện thất bại.");
+        }
+    };
+
+    // Resolve conversation
+    const handleResolve = async () => {
+        if (!selectedConv) return;
+        try {
+            await resolveConv(selectedConv.id);
+            toast.success("Cuộc trò chuyện đã kết thúc.");
+            loadConversations();
+        } catch (err) {
+            toast.error("Kết thúc cuộc trò chuyện thất bại.");
+        }
+    };
+
+    // Filter logic
+    const filteredConversations = conversations.filter(conv => {
+        if (filter === 'PENDING') return conv.status === 'HANDOFF_REQUESTED';
+        if (filter === 'ACTIVE') return conv.status === 'HUMAN_ACTIVE';
+        if (filter === 'RESOLVED') return conv.status === 'RESOLVED';
+        return true; // ALL
+    });
+
+    const getStatusText = (status: string) => {
+        if (status === 'AI_ACTIVE') return 'AI hoạt động';
+        if (status === 'HANDOFF_REQUESTED') return 'Chờ hỗ trợ';
+        if (status === 'HUMAN_ACTIVE') return 'Đang hỗ trợ';
+        return 'Đã giải quyết';
+    };
+
+    const getStatusColor = (status: string) => {
+        if (status === 'AI_ACTIVE') return 'bg-blue-100 text-blue-800 border-blue-200';
+        if (status === 'HANDOFF_REQUESTED') return 'bg-amber-100 text-amber-800 border-amber-200 animate-pulse';
+        if (status === 'HUMAN_ACTIVE') return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    };
 
     return (
-        <div className="py-8">
-            <div className="container mx-auto px-4">
-                <div className="flex flex-col h-[calc(100vh-200px)] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                    <div className="flex flex-1 overflow-hidden">
-                        {/* Sidebar - Danh sách hội thoại */}
-                        <aside className="w-80 border-r border-gray-200 bg-white overflow-y-auto shadow-sm">
-                            <div className="p-4 border-b border-gray-200 bg-[#d4a373] text-white">
-                                <h2 className="text-xl font-bold flex items-center space-x-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                                    </svg>
-                                    <span>Cuộc hội thoại</span>
-                                </h2>
-                            </div>
-                            <ul>
-                                {Array.from(conversations.values()).map(conv => (
-                                    <li
-                                        key={conv.customerId}
-                                        onClick={() => selectConversation(conv.customerId)}
-                                        className={`p-4 cursor-pointer border-b border-gray-100 hover:bg-[#f8f1e9] transition-colors duration-200 ${
-                                            selectedCustomerId === conv.customerId ? 'bg-[#f8f1e9] border-l-4 border-l-[#d4a373]' : ''
-                                        }`}
-                                    >
-                                        <div className="flex justify-between items-start">
-                                            <p className="font-semibold text-gray-800">{conv.customerName}</p>
-                                            {conv.lastMessage && conv.messages.length > 0 && (
-                                                <span className="text-xs text-gray-500">
-                                                    {new Date(conv.messages[conv.messages.length - 1]?.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-sm text-gray-500 truncate mt-1">{conv.lastMessage}</p>
-                                    </li>
-                                ))}
-                            </ul>
-                        </aside>
+        <div className="py-8 bg-[#FCF8F1] min-h-screen">
+            <div className="max-w-[1600px] mx-auto px-4">
+                <div className="flex gap-6 h-[calc(100vh-140px)] bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                    
+                    {/* Left Sidebar: Conversations List */}
+                    <aside className="w-96 flex flex-col border-r border-gray-100 bg-white">
+                        <div className="p-4 border-b border-gray-100 bg-[#2C1E16] text-white">
+                            <h2 className="text-lg font-bold flex items-center gap-2">
+                                <span className="text-xl">⛺</span> Hộp Thư Hỗ Trợ Phê La
+                            </h2>
+                        </div>
 
-                        {/* Main chat area */}
-                        <main className="flex-1 flex flex-col bg-white">
-                            {selectedConversation ? (
-                                <>
-                                    <div className="p-4 border-b border-gray-200 bg-[#f8f1e9]">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="bg-[#d4a373] text-white p-2 rounded-full">
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                </svg>
+                        {/* Filters Panel */}
+                        <div className="p-2 border-b border-gray-100 bg-gray-50 flex gap-1">
+                            {['ALL', 'PENDING', 'ACTIVE', 'RESOLVED'].map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setFilter(tab as any)}
+                                    className={`flex-1 text-[11px] font-extrabold py-2 px-1 rounded-lg transition-all ${
+                                        filter === tab 
+                                        ? 'bg-[#8C5A35] text-white shadow-sm' 
+                                        : 'text-[#2C1E16] hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {tab === 'ALL' && 'Tất cả'}
+                                    {tab === 'PENDING' && 'Chờ hỗ trợ'}
+                                    {tab === 'ACTIVE' && 'Đang hỗ trợ'}
+                                    {tab === 'RESOLVED' && 'Đã giải'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Conversations list container */}
+                        <div className="flex-1 overflow-y-auto">
+                            {filteredConversations.length === 0 ? (
+                                <div className="text-center py-10 text-gray-400 text-sm font-medium">
+                                    Không tìm thấy cuộc trò chuyện nào.
+                                </div>
+                            ) : (
+                                <ul>
+                                    {filteredConversations.map(conv => (
+                                        <li
+                                            key={conv.id}
+                                            onClick={() => selectConversation(conv)}
+                                            className={`p-4 border-b border-gray-50 cursor-pointer hover:bg-[#FCF8F1] transition-all relative ${
+                                                selectedConv?.id === conv.id ? 'bg-[#FCF8F1] border-l-4 border-l-[#8C5A35]' : ''
+                                            }`}
+                                        >
+                                            <div className="flex justify-between items-start gap-2 mb-1">
+                                                <h3 className="font-bold text-gray-800 text-sm truncate">{conv.customerName}</h3>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(conv.status)}`}>
+                                                    {getStatusText(conv.status)}
+                                                </span>
                                             </div>
-                                            <div>
-                                                <h2 className="text-lg font-bold text-gray-800">Chat với {selectedConversation.customerName}</h2>
-                                                <p className="text-xs text-gray-500">Đang hoạt động</p>
+
+                                            <p className="text-xs text-gray-500 truncate mb-1">
+                                                {conv.lastMessage || 'Chưa có tin nhắn'}
+                                            </p>
+
+                                            <div className="flex justify-between items-center text-[10px] text-gray-400 mt-2 font-medium">
+                                                <span>Admin: {conv.assignedAdminName || 'Chưa chỉ định'}</span>
+                                                {conv.lastMessageTimestamp && (
+                                                    <span>{new Date(conv.lastMessageTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                )}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </aside>
+
+                    {/* Middle Panel: Active Conversation Window */}
+                    <main className="flex-1 flex flex-col bg-[#FCF8F1]/40 border-r border-gray-100">
+                        {selectedConv ? (
+                            <>
+                                {/* Conversation Header */}
+                                <div className="p-4 border-b border-gray-100 bg-white flex justify-between items-center shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-[#8C5A35] text-white flex items-center justify-center font-bold text-lg">
+                                            {selectedConv.customerName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-gray-800 text-sm">Hội thoại: {selectedConv.customerName}</h3>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className={`w-2 h-2 rounded-full ${selectedConv.status === 'RESOLVED' ? 'bg-gray-400' : 'bg-green-400 animate-pulse'}`}></span>
+                                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                                                    {getStatusText(selectedConv.status)}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex-1 p-4 overflow-y-auto bg-[#faf6f2]">
-                                        {selectedConversation.messages.map((msg, index) => (
-                                            <div
-                                                key={msg.id || index}
-                                                className={`mb-4 flex ${msg.senderId === 'ADMIN' ? 'justify-end' : 'justify-start'}`}
+
+                                    {/* Action items */}
+                                    <div className="flex gap-2">
+                                        {selectedConv.status === 'HANDOFF_REQUESTED' && (
+                                            <button
+                                                onClick={handleAssign}
+                                                className="bg-[#8C5A35] text-white text-xs font-extrabold px-4 py-2 rounded-xl hover:bg-[#2C1E16] shadow-sm transition-all"
                                             >
-                                                <div className={`max-w-lg rounded-lg p-3 ${
-                                                    msg.senderId === 'ADMIN'
-                                                        ? 'bg-[#d4a373] text-white rounded-tr-none'
-                                                        : 'bg-white text-gray-800 rounded-tl-none shadow-sm'
+                                                Tiếp nhận cuộc gọi
+                                            </button>
+                                        )}
+                                        {selectedConv.status !== 'RESOLVED' && (
+                                            <button
+                                                onClick={handleResolve}
+                                                className="bg-gray-100 text-gray-700 text-xs font-bold px-4 py-2 rounded-xl hover:bg-red-50 hover:text-red-600 border border-gray-200 transition-all"
+                                            >
+                                                Kết thúc phiên
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Messages list log */}
+                                <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto flex flex-col gap-3">
+                                    {messages.map((msg, index) => {
+                                        if ((msg.senderType as string) === 'SYSTEM') {
+                                            return (
+                                                <div key={msg.id || index} className="text-center my-1">
+                                                    <span className="bg-gray-200/70 text-gray-600 text-[10px] px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">
+                                                        {msg.content}
+                                                    </span>
+                                                </div>
+                                            );
+                                        }
+
+                                        const isAdmin = msg.senderType === 'ADMIN';
+
+                                        return (
+                                            <div key={msg.id || index} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                                                <div className={`max-w-md rounded-2xl p-3 shadow-sm ${
+                                                    isAdmin 
+                                                    ? 'bg-[#8C5A35] text-white rounded-tr-none' 
+                                                    : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                                                 }`}>
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <p className="text-xs font-semibold">{msg.senderName}</p>
-                                                        <span className="text-xs opacity-80">
-                                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </span>
+                                                    <div className="flex items-center justify-between gap-4 mb-1 text-[10px] opacity-75 font-bold">
+                                                        <span>{msg.senderName}</span>
+                                                        {msg.createdAt && (
+                                                            <span>{formatDateTime(msg.createdAt, true)}</span>
+                                                        )}
                                                     </div>
-                                                    {msg.content && <p className="text-sm break-words">{msg.content}</p>}
-                                                    {msg.imageUrl && (
-                                                        <img src={msg.imageUrl} alt="Chat attachment" className="max-w-full h-auto rounded-md mt-2" />
+
+                                                    {msg.messageType === 'IMAGE' ? (
+                                                        <img 
+                                                            src={msg.imageUrl} 
+                                                            alt="Chat attachment" 
+                                                            className="max-w-[240px] max-h-[180px] object-cover rounded-lg mt-1 shadow-inner animate-fade-in"
+                                                            onLoad={() => {
+                                                                if (messagesContainerRef.current) {
+                                                                    messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+                                                                }
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <p className="text-xs leading-relaxed font-medium whitespace-pre-wrap">{msg.content}</p>
                                                     )}
                                                 </div>
                                             </div>
-                                        ))}
-                                        <div ref={messagesEndRef} />
+                                        );
+                                    })}
+                                    <div ref={messagesEndRef} />
+                                </div>
+
+                                {/* Message inputs panel */}
+                                <div className="p-4 border-t border-gray-100 bg-white">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => imageInputRef.current?.click()}
+                                            className="bg-gray-100 text-gray-500 p-3 rounded-xl hover:bg-gray-200 transition-all border border-gray-200"
+                                            title="Gửi hình ảnh"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </button>
+                                        <input 
+                                            type="file" 
+                                            ref={imageInputRef} 
+                                            className="hidden" 
+                                            accept="image/*"
+                                            onChange={handleImageSend}
+                                        />
+
+                                        <input
+                                            type="text"
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing) {
+                                                    e.preventDefault();
+                                                    handleSendMessage();
+                                                }
+                                            }}
+                                            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#8C5A35] focus:bg-white transition-all font-medium text-gray-800"
+                                            placeholder={`Gửi phản hồi tới ${selectedConv.customerName}...`}
+                                        />
+
+                                        <button
+                                            onClick={handleSendMessage}
+                                            className="bg-[#8C5A35] hover:bg-[#2C1E16] text-white p-3 rounded-xl transition-all shadow-sm"
+                                        >
+                                            <svg className="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                            </svg>
+                                        </button>
                                     </div>
-                                    <div className="p-4 border-t border-gray-200 bg-white">
-                                        <div className="flex items-center space-x-2">
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleImageSend}
-                                                style={{ display: 'none' }}
-                                                id="chat-image-upload-admin" // ID duy nhất
-                                            />
-                                            <button
-                                                onClick={() => document.getElementById('chat-image-upload-admin')?.click()}
-                                                className="bg-gray-200 text-gray-700 p-3 rounded-lg hover:bg-gray-300 transition-colors duration-200"
-                                                title="Gửi ảnh"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                </svg>
-                                            </button>
-                                            <input
-                                                type="text"
-                                                value={inputValue}
-                                                onChange={(e) => setInputValue(e.target.value)}
-                                                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                                                className="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#d4a373] focus:border-transparent"
-                                                placeholder={`Nhắn tin cho ${selectedConversation.customerName}...`}
-                                            />
-                                            <button
-                                                onClick={handleSendMessage}
-                                                className="bg-[#d4a373] text-white p-3 rounded-lg hover:bg-[#c19266] transition-colors duration-200"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                                </svg>
-                                            </button>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
+                                <span className="text-5xl mb-4">⛺</span>
+                                <h3 className="text-base font-bold text-gray-600 mb-1">Chưa chọn cuộc hội thoại nào</h3>
+                                <p className="text-xs text-gray-400 text-center max-w-xs leading-relaxed font-medium">
+                                    Vui lòng chọn một cuộc trò chuyện từ danh sách hộp thư bên trái để bắt đầu hỗ trợ khách hàng.
+                                </p>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Right Panel: Customer Profile Details & Order History */}
+                    <aside className="w-80 flex flex-col bg-white">
+                        {selectedConv ? (
+                            <div className="p-6 flex flex-col gap-6 overflow-y-auto h-full">
+                                {/* Profile overview */}
+                                <div>
+                                    <h4 className="text-xs font-bold text-[#8C5A35] uppercase tracking-wider mb-3">Thông Tin Khách Hàng</h4>
+                                    <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                        <div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase">Họ và Tên</div>
+                                            <div className="text-xs font-bold text-gray-800">{selectedConv.customerName}</div>
+                                        </div>
+                                        {selectedConv.customerEmail && (
+                                            <div>
+                                                <div className="text-[10px] font-bold text-gray-400 uppercase">Email</div>
+                                                <div className="text-xs font-bold text-gray-800 break-all">{selectedConv.customerEmail}</div>
+                                            </div>
+                                        )}
+                                        {selectedConv.customerPhone && (
+                                            <div>
+                                                <div className="text-[10px] font-bold text-gray-400 uppercase">Số Điện Thoại</div>
+                                                <div className="text-xs font-bold text-gray-800">{selectedConv.customerPhone}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Assignment details */}
+                                <div>
+                                    <h4 className="text-xs font-bold text-[#8C5A35] uppercase tracking-wider mb-3">Quản Lý Phân Công</h4>
+                                    <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100 text-xs font-bold text-gray-700">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400 font-bold">Người tiếp nhận:</span>
+                                            <span>{selectedConv.assignedAdminName || 'Chưa chỉ định'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400 font-bold">Nguồn hội thoại:</span>
+                                            <span>{selectedConv.source === 'AI' ? 'Trợ lý AI' : selectedConv.source === 'MIXED' ? 'AI + Nhân viên' : 'Nhân viên'}</span>
                                         </div>
                                     </div>
-                                </>
-                            ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                    </svg>
-                                    <h3 className="text-xl font-medium mb-2">Không có cuộc hội thoại nào được chọn</h3>
-                                    <p className="text-center max-w-md">Vui lòng chọn một cuộc hội thoại từ danh sách bên trái để bắt đầu trò chuyện.</p>
                                 </div>
-                            )}
-                        </main>
-                    </div>
+
+                                {/* Recent orders list */}
+                                <div className="flex-1 flex flex-col">
+                                    <h4 className="text-xs font-bold text-[#8C5A35] uppercase tracking-wider mb-3">Lịch Sử Đơn Hàng Gần Đây</h4>
+                                    
+                                    {loadingOrders ? (
+                                        <div className="text-center py-4 text-xs font-medium text-gray-400 animate-pulse">
+                                            Đang tải lịch sử đơn...
+                                        </div>
+                                    ) : orders.length === 0 ? (
+                                        <div className="text-center py-4 text-xs font-medium text-gray-400">
+                                            Chưa có đơn hàng nào.
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-3 overflow-y-auto">
+                                            {orders.map(order => (
+                                                <div key={order.orderId} className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs font-medium flex flex-col gap-1.5">
+                                                    <div className="flex justify-between font-bold">
+                                                        <span className="text-gray-700">Mã đơn: #{order.orderId.substring(0, 8)}</span>
+                                                        <span className="text-[#8C5A35]">{(order.totalAmount || 0).toLocaleString()}đ</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-[10px] font-bold">
+                                                        <span className="text-gray-400">{formatDateTime(order.createdAt, false)}</span>
+                                                        <span className={`px-2 py-0.5 rounded-full border ${
+                                                            order.status === 'DELIVERED' 
+                                                            ? 'bg-green-50 text-green-700 border-green-200' 
+                                                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                                                        }`}>
+                                                            {order.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-center text-gray-400 text-xs font-bold p-6">
+                                Chọn một cuộc trò chuyện để xem chi tiết khách hàng
+                            </div>
+                        )}
+                    </aside>
                 </div>
             </div>
         </div>

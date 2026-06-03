@@ -13,6 +13,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 @Entity(name = "product")
+@EntityListeners(com.example.be_phela.model.listener.AiKnowledgeDirtyListener.class)
 public class Product {
     @Id
     @UuidGenerator

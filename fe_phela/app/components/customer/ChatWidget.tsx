@@ -35,8 +35,10 @@ const ChatWidget = () => {
     const connect = useCallback((currentCustomerId: string) => {
         if (stompClientRef.current && stompClientRef.current.connected) return;
 
+        const token = localStorage.getItem('token');
         const client = new Client({
             webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+            connectHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
             onConnect: () => {
                 console.log('Connected to chat server!');
                 client.subscribe(`/topic/chat/${currentCustomerId}`, (message) => {
@@ -199,6 +201,11 @@ const ChatWidget = () => {
     const handleImageSend = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert("Kích thước ảnh không được vượt quá 5MB.");
+            return;
+        }
 
         if (!user || !isCustomerUser(user)) {
             console.error("User not authenticated or not a customer.");

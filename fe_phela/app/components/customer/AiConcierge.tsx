@@ -127,6 +127,11 @@ const AiConcierge = () => {
     const handleSend = async () => {
         if (!inputValue.trim() && !selectedImage && !audioBlob) return;
 
+        if (!user) {
+            toast.error('Vui lòng đăng nhập để trò chuyện cùng Phê La AI nhé!');
+            return;
+        }
+
         // Capture current values BEFORE clearing state
         const currentInput = inputValue;
         const currentImage = selectedImage;
@@ -154,13 +159,15 @@ const AiConcierge = () => {
             if (currentImage) formData.append('image', currentImage);
             if (currentAudio) formData.append('audio', currentAudio, 'voice.webm');
 
-            // Fix type error: Use helper to safely access customerId
-            if (user && isCustomerUser(user)) {
-                formData.append('customerId', user.customerId);
+            const token = localStorage.getItem('token');
+            const headers: Record<string, string> = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
             }
 
             const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
                 method: 'POST',
+                headers: headers,
                 body: formData
             });
 

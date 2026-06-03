@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '~/AuthContext';
-import axios from 'axios';
+import api from '~/config/axios';
 import {
   FiSettings, FiShield, FiDollarSign, FiMusic, FiInfo,
   FiSave, FiRefreshCw, FiAlertTriangle, FiCheck, FiLock,
@@ -122,28 +122,24 @@ const SystemSettings: React.FC = () => {
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/api/admin/settings`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get('/api/admin/settings');
       setSettings(res.data);
     } catch (err) {
       toast.error('Không thể tải cài đặt hệ thống!');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   // ---------- Load ENV payment config ----------
   const loadEnvConfig = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/settings/payment-env`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get('/api/admin/settings/payment-env');
       setEnvConfig(res.data);
     } catch {
       // silent fail
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => { loadSettings(); loadEnvConfig(); }, [loadSettings, loadEnvConfig]);
 
@@ -173,9 +169,7 @@ const SystemSettings: React.FC = () => {
     }
     try {
       setSaving(true);
-      const res = await axios.put(`${API_BASE}/api/admin/settings`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.put('/api/admin/settings', payload);
       setSettings(res.data);
       // Xoá dirty của section này
       setDirty(prev => {

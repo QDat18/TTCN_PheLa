@@ -20,10 +20,6 @@ const customerRoutes: RouteConfig = [
     // Cửa hàng
     route("he-thong-cua-hang", "routes/storePage.tsx"),
 
-    // Tuyển dụng
-    route("tuyen-dung", "routes/recruitmentCus.tsx"),
-    route("tuyen-dung/:recruitmentId", "routes/recruitmentDetail.tsx"),
-
     // Thẻ thành viên (Public Info)
     route("dieu-khoan-va-dieu-kien-su-dung-the-thanh-vien-phe-la", "routes/clause.tsx"),
     route("membership", "routes/membership.tsx"),
@@ -65,9 +61,6 @@ const adminRoutes: RouteConfig = [
         route("profileAdmin", "routes/profileAdmin.tsx"),
         route("staff", "routes/staff.tsx"),
         route("store", "routes/storeManage.tsx"),
-        route("tin-tuyen-dung", "routes/recruitment.tsx"),
-        route("tin-tuyen-dung/:jobPostingId/candidates", "routes/recruitmentDetailJob.tsx"),
-        route("ung-vien", "routes/candidate.tsx"),
         route("banner", "routes/bannerManager.tsx"),
         route("tin-tuc-admin", "routes/newsManager.tsx"),
         route("tin-tuc-admin/:newsId", "routes/newsDetailManager.tsx"),

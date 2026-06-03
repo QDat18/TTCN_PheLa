@@ -4,31 +4,33 @@ import com.example.be_phela.service.AiAssistant;
 import com.example.be_phela.service.AiTools;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel; // Đã đổi từ ChatLanguageModel
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
-import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
+import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import dev.langchain4j.model.audio.AudioTranscriptionModel;
+import dev.langchain4j.model.openai.OpenAiAudioTranscriptionModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 
 @Configuration
 public class AiConfiguration {
 
-    @Value("${gemini.api.key}")
-    private String apiKey;
+    @Value("${groq.api.key:YOUR_GROQ_API_KEY}")
+    private String groqApiKey;
 
     @Value("${db.host:localhost}")
     private String dbHost;
 
-    @Value("${db.port:5433}")
+    @Value("${db.port:6543}")
     private Integer dbPort;
 
-    @Value("${db.name:phela}")
+    @Value("${db.name:postgres}")
     private String dbName;
 
     @Value("${spring.datasource.username:postgres}")
@@ -38,24 +40,32 @@ public class AiConfiguration {
     private String dbPassword;
 
     @Bean
-    public ChatLanguageModel chatLanguageModel() {
-        return GoogleAiGeminiChatModel.builder()
-                .apiKey(apiKey)
-                .modelName("gemini-1.5-flash")
-                .timeout(java.time.Duration.ofSeconds(120))
-                .logRequestsAndResponses(true)
+    public ChatModel chatModel() { // Đổi tên bean và kiểu trả về
+        return OpenAiChatModel.builder()
+                .baseUrl("https://api.groq.com/openai/v1")
+                .apiKey(groqApiKey)
+                .modelName("llama-3.3-70b-versatile")
+                .timeout(java.time.Duration.ofSeconds(60))
+                .logRequests(true)
+                .logResponses(true)
+                .build();
+    }
+
+    @Bean
+    public AudioTranscriptionModel groqTranscriptionModel() {
+        return OpenAiAudioTranscriptionModel.builder()
+                .baseUrl("https://api.groq.com/openai/v1")
+                .apiKey(groqApiKey)
+                .modelName("whisper-large-v3-turbo")
                 .build();
     }
 
     @Bean
     public EmbeddingModel embeddingModel() {
-        return GoogleAiEmbeddingModel.builder()
-                .apiKey(apiKey)
-                .modelName("gemini-embedding-2-preview")
-                .build();
+        return new AllMiniLmL6V2EmbeddingModel();
     }
 
-    @Bean
+@Bean
     public dev.langchain4j.store.embedding.EmbeddingStore<dev.langchain4j.data.segment.TextSegment> embeddingStore() {
         return PgVectorEmbeddingStore.builder()
                 .host(dbHost)
@@ -64,14 +74,13 @@ public class AiConfiguration {
                 .user(dbUser)
                 .password(dbPassword)
                 .table("phela_ai_embeddings")
-                .dimension(3072)
-                .dropTableFirst(false)
+                .dimension(384) // Sửa 3072 thành 384
+                .dropTableFirst(false) // Đổi tạm thành true để reset bảng
                 .build();
     }
-
     @Bean
     public AiAssistant aiAssistant(
-            ChatLanguageModel chatModel,
+            ChatModel chatModel, // Nhận vào ChatModel
             AiTools aiTools,
             dev.langchain4j.store.embedding.EmbeddingStore<dev.langchain4j.data.segment.TextSegment> embeddingStore,
             EmbeddingModel embeddingModel) {
@@ -88,7 +97,7 @@ public class AiConfiguration {
         ChatMemoryProvider memoryProvider = customerId -> MessageWindowChatMemory.withMaxMessages(20);
 
         return AiServices.builder(AiAssistant.class)
-                .chatLanguageModel(chatModel)
+                .chatModel(chatModel) // Đổi từ .chatLanguageModel(...) thành .chatModel(...)
                 .tools(aiTools)
                 .contentRetriever(contentRetriever)
                 .chatMemoryProvider(memoryProvider)

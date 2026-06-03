@@ -73,7 +73,18 @@ public class OrderService implements IOrderService {
         }
 
         Customer customer = cart.getCustomer();
-        
+
+        // SERVER-SIDE: Tính totalAmount từ cart items, KHÔNG tin frontend
+        double serverTotalAmount = cart.getCartItems().stream()
+                .mapToDouble(item -> {
+                    double itemAmount = item.getAmount() != null ? item.getAmount() : 0.0;
+                    int qty = item.getQuantity() != null ? item.getQuantity() : 1;
+                    return itemAmount * qty;
+                })
+                .sum();
+        // SERVER-SIDE: Sử dụng shippingFee từ frontend nhưng validate không âm
+        double serverShippingFee = orderCreateDTO.getShippingFee() != null ? Math.max(0, orderCreateDTO.getShippingFee()) : 0.0;
+
         // Voucher Logic
         String voucherCode = orderCreateDTO.getVoucherCode();
         Double discountAmount = 0.0;
@@ -95,20 +106,20 @@ public class OrderService implements IOrderService {
             if (voucher.getUsageLimit() != null && voucher.getUsedCount() >= voucher.getUsageLimit()) {
                 throw new RuntimeException("Voucher usage limit reached");
             }
-            if (orderCreateDTO.getTotalAmount() < voucher.getMinOrderAmount()) {
+            if (serverTotalAmount < voucher.getMinOrderAmount()) {
                 throw new RuntimeException("Minimum order amount not met for this voucher");
             }
 
-            // Calculate Discount
+            // Calculate Discount using server-calculated amount
             if (voucher.getType() == com.example.be_phela.model.enums.DiscountType.PERCENTAGE) {
-                discountAmount = orderCreateDTO.getTotalAmount() * (voucher.getValue() / 100.0);
+                discountAmount = serverTotalAmount * (voucher.getValue() / 100.0);
                 if (voucher.getMaxDiscountAmount() != null && discountAmount > voucher.getMaxDiscountAmount()) {
                     discountAmount = voucher.getMaxDiscountAmount();
                 }
             } else if (voucher.getType() == com.example.be_phela.model.enums.DiscountType.FIXED_AMOUNT) {
                 discountAmount = voucher.getValue();
             } else if (voucher.getType() == com.example.be_phela.model.enums.DiscountType.SHIPPING) {
-                discountAmount = Math.min(orderCreateDTO.getShippingFee(), voucher.getValue());
+                discountAmount = Math.min(serverShippingFee, voucher.getValue());
             }
             
             // Update used count
@@ -139,8 +150,10 @@ public class OrderService implements IOrderService {
         int noteValueVnd = settingService.getInt("loyalty.note_value_vnd", 1000);
         Double pointsDiscount = notesUsed * (double) noteValueVnd; // 1 Note = noteValueVnd VND (from settings)
 
+        double finalAmount = Math.max(0, serverTotalAmount + serverShippingFee - discountAmount - pointsDiscount);
+
         Order order = Order.builder()
-                .orderCode("PL" + System.currentTimeMillis() + new Random().nextInt(1000))
+                .orderCode(generateUniqueOrderCode())
                 .customer(customer)
                 .address(cart.getAddress())
                 .branch(cart.getBranch())
@@ -148,12 +161,12 @@ public class OrderService implements IOrderService {
                             (cart.getAddress() != null ? cart.getAddress().getDetailedAddress() : null))
                 .phone(orderCreateDTO.getPhone() != null ? orderCreateDTO.getPhone() : customer.getPhone())
                 .receiverName(orderCreateDTO.getReceiverName() != null ? orderCreateDTO.getReceiverName() : customer.getFullname())
-                .totalAmount(orderCreateDTO.getTotalAmount())
-                .shippingFee(orderCreateDTO.getShippingFee())
+                .totalAmount(serverTotalAmount)
+                .shippingFee(serverShippingFee)
                 .discountAmount(discountAmount + pointsDiscount)
                 .voucherCode(voucherCode)
                 .notesUsed(notesUsed)
-                .finalAmount(orderCreateDTO.getTotalAmount() + orderCreateDTO.getShippingFee() - discountAmount - pointsDiscount)
+                .finalAmount(finalAmount)
                 .status(OrderStatus.PENDING)
                 .paymentMethod(orderCreateDTO.getPaymentMethod())
                 .paymentStatus(PaymentStatus.PENDING)
@@ -240,6 +253,9 @@ public class OrderService implements IOrderService {
             pointHistoryRepository.save(refundHistory);
         }
 
+        // Voucher Rollback: Hoàn lại lượt dùng voucher
+        rollbackVoucherUsage(order);
+
         orderRepository.save(order);
         log.info("Order rolled back due to payment failure: {}", orderId);
     }
@@ -278,7 +294,15 @@ public class OrderService implements IOrderService {
             pointHistoryRepository.save(refundHistory);
         }
 
+        // Voucher Rollback: Hoàn lại lượt dùng voucher
+        rollbackVoucherUsage(order);
+
+        if (order.getPaymentStatus() == PaymentStatus.PENDING || order.getPaymentStatus() == PaymentStatus.AWAITING_PAYMENT) {
+            order.setPaymentStatus(PaymentStatus.FAILED);
+        }
+
         orderRepository.save(order);
+        log.info("Order {} cancelled by customer. Payment status set to {}", orderId, order.getPaymentStatus());
     }
 
     @Override
@@ -309,6 +333,11 @@ public class OrderService implements IOrderService {
                         .description("Hoàn lại nốt nhạc do đơn bị hủy: " + order.getOrderCode())
                         .build();
                 pointHistoryRepository.save(refundHistory);
+            }
+            // Voucher Rollback: Hoàn lại lượt dùng voucher
+            rollbackVoucherUsage(order);
+            if (order.getPaymentStatus() == PaymentStatus.PENDING || order.getPaymentStatus() == PaymentStatus.AWAITING_PAYMENT) {
+                order.setPaymentStatus(PaymentStatus.FAILED);
             }
         }
         
@@ -493,6 +522,42 @@ public class OrderService implements IOrderService {
             customer.setMembershipTier(MembershipTier.SILVER);
         } else {
             customer.setMembershipTier(MembershipTier.MEMBER);
+        }
+    }
+
+    /**
+     * Tạo mã đơn hàng duy nhất với prefix PL + tối đa 9 chữ số (tương thích PayOS).
+     */
+    private String generateUniqueOrderCode() {
+        Random random = new Random();
+        String orderCode;
+        int attempts = 0;
+        do {
+            // Tạo mã số 9 chữ số ngẫu nhiên (100000000 - 999999999)
+            long code = 100_000_000L + (long) (random.nextDouble() * 900_000_000L);
+            orderCode = "PL" + code;
+            attempts++;
+            if (attempts > 10) {
+                // Fallback: dùng timestamp phần cuối + random
+                orderCode = "PL" + (System.currentTimeMillis() % 1_000_000_000L);
+                break;
+            }
+        } while (orderRepository.findByOrderCode(orderCode).isPresent());
+        return orderCode;
+    }
+
+    /**
+     * Hoàn lại lượt dùng voucher khi đơn hàng bị hủy hoặc thanh toán thất bại.
+     */
+    private void rollbackVoucherUsage(Order order) {
+        if (order.getVoucherCode() != null && !order.getVoucherCode().isEmpty()) {
+            voucherRepository.findByCode(order.getVoucherCode()).ifPresent(voucher -> {
+                if (voucher.getUsedCount() != null && voucher.getUsedCount() > 0) {
+                    voucher.setUsedCount(voucher.getUsedCount() - 1);
+                    voucherRepository.save(voucher);
+                    log.info("Voucher {} usedCount rolled back for order {}", voucher.getCode(), order.getOrderCode());
+                }
+            });
         }
     }
 }

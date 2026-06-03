@@ -93,7 +93,7 @@ public class ProductController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "productName") String sortBy) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
-        Page<ProductResponseDTO> productPage = productService.getAllProducts(pageable)
+        Page<ProductResponseDTO> productPage = productService.getActiveProducts(pageable)
                 .map(productMapper::toProductResponseDTO);
         return ResponseEntity.ok(productPage);
     }
@@ -144,7 +144,7 @@ public class ProductController {
         if (categoryCode == null || categoryCode.trim().isEmpty()) {
             throw new IllegalArgumentException("Category code is required");
         }
-        List<Product> products = productService.getProductsByCategory(categoryCode);
+        List<Product> products = productService.getActiveProductsByCategory(categoryCode);
         List<ProductResponseDTO> productResponseDTOs = products.stream()
                 .map(productMapper::toProductResponseDTO)
                 .toList();

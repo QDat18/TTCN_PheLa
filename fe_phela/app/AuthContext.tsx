@@ -34,7 +34,7 @@ export type User = CustomerUser | AdminUser;
 interface AuthContextType {
   user: User | null;
   login: (userData: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   loading: boolean;
   updateUserProfile: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -129,8 +129,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     const initAuth = async () => {
-      const storedToken = localStorage.getItem('token');
-      const storedUserRaw = localStorage.getItem('user');
+      const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+      const tokenKey = isAdminPath ? 'admin_token' : 'customer_token';
+      const userKey = isAdminPath ? 'admin_user' : 'customer_user';
+
+      let storedToken = localStorage.getItem(tokenKey);
+      let storedUserRaw = localStorage.getItem(userKey);
+
+      // Fallback to shared keys if specific keys aren't set yet
+      if (!storedToken) storedToken = localStorage.getItem('token');
+      if (!storedUserRaw) storedUserRaw = localStorage.getItem('user');
 
       if (storedToken && storedUserRaw) {
         try {
@@ -159,12 +167,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (userData: User) => {
     localStorage.setItem('token', userData.token || '');
     localStorage.setItem('user', JSON.stringify(userData));
+
+    if (userData.type === 'admin') {
+      localStorage.setItem('admin_token', userData.token || '');
+      localStorage.setItem('admin_user', JSON.stringify(userData));
+    } else {
+      localStorage.setItem('customer_token', userData.token || '');
+      localStorage.setItem('customer_user', JSON.stringify(userData));
+    }
     setUser(userData);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out from Supabase:', error);
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    localStorage.removeItem('customer_token');
+    localStorage.removeItem('customer_user');
     setUser(null);
   };
 

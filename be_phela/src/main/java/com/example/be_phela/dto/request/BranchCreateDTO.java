@@ -18,4 +18,6 @@ public class BranchCreateDTO {
     private String district;
     private String address;
     private ProductStatus status;
+    private String openingTime;
+    private String closingTime;
 }

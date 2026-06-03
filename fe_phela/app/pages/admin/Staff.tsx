@@ -71,7 +71,8 @@ const Staff = () => {
           status: admin.status,
           branch: admin.branch ? (typeof admin.branch === 'string' ? admin.branch : admin.branch.branchCode) : 'Chưa sắp xếp'
         }));
-        setTotalPages(response.data.totalPages);
+        setAdmins(adminsData);
+        setTotalPages(response.data.page?.totalPages ?? response.data.totalPages ?? 1);
       } else {
         adminsData = response.data.map((admin: any) => ({
           employCode: admin.employCode,

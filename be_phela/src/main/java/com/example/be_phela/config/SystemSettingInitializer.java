@@ -63,7 +63,17 @@ public class SystemSettingInitializer implements ApplicationRunner {
             new SystemSetting("payment.cod_enabled",       "true",               "payment", "Bật thanh toán tiền mặt (COD)"),
             new SystemSetting("payment.bank_enabled",      "true",               "payment", "Bật chuyển khoản ngân hàng"),
             new SystemSetting("payment.payos_enabled",     "true",               "payment", "Bật thanh toán qua PayOS"),
-            new SystemSetting("payment.min_online_amount", "10000",              "payment", "Số tiền tối thiểu để thanh toán online (VNĐ)")
+            new SystemSetting("payment.min_online_amount", "10000",              "payment", "Số tiền tối thiểu để thanh toán online (VNĐ)"),
+            
+            // === CHAT & AI ===
+            new SystemSetting("ai.enabled",                "true",                 "chat", "Bật/Tắt AI hỗ trợ khách hàng"),
+            new SystemSetting("ai.max_requests_per_day",   "100",                  "chat", "Giới hạn số câu hỏi AI tối đa mỗi khách hàng một ngày"),
+            new SystemSetting("ai.timeout_seconds",        "8",                    "chat", "Thời gian chờ phản hồi AI (giây) trước khi tự động chuyển đổi sang nhân viên"),
+            new SystemSetting("ai.failure_threshold",      "3",                    "chat", "Số lần lỗi liên tiếp cho phép trước khi tắt AI tạm thời"),
+            new SystemSetting("ai.cooldown_minutes",       "10",                   "chat", "Thời gian tắt AI tạm thời sau khi vượt ngưỡng lỗi (phút)"),
+            new SystemSetting("ai.handoff_on_payment",     "true",                 "chat", "Tự động chuyển nhân viên khi khách hỏi về thanh toán/hủy đơn"),
+            new SystemSetting("ai.handoff_on_complaint",   "true",                 "chat", "Tự động chuyển nhân viên khi khách phàn nàn/khiếu nại"),
+            new SystemSetting("chat_greeting_message",     "Chào {name}! Phê La có thể giúp gì cho bạn hôm nay?", "chat", "Tin nhắn chào mặc định khi mở chatbox")
         );
 
         settingService.initializeDefaults(defaults);

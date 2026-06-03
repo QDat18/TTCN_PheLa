@@ -53,6 +53,8 @@ interface Branch {
   district: string;
   address: string;
   status: string;
+  openingTime?: string;
+  closingTime?: string;
 }
 
 interface GoongPrediction {
@@ -80,6 +82,8 @@ const Store = () => {
     district: '',
     address: '',
     status: 'SHOW',
+    openingTime: '07:00',
+    closingTime: '23:00',
   });
   const [mapPosition, setMapPosition] = useState<[number, number]>([21.0278, 105.8342]);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -392,6 +396,8 @@ const Store = () => {
         district: newBranch.district,
         address: newBranch.address,
         status: newBranch.status,
+        openingTime: newBranch.openingTime,
+        closingTime: newBranch.closingTime,
       };
       const response = await api.post('/api/admin/branch/create', payload);
       setBranches((prev) => [
@@ -429,6 +435,8 @@ const Store = () => {
         district: newBranch.district,
         address: newBranch.address,
         status: newBranch.status,
+        openingTime: newBranch.openingTime,
+        closingTime: newBranch.closingTime,
       };
       const response = await api.put(`/api/admin/branch/${currentBranchCode}`, payload);
       setBranches((prev) =>
@@ -462,6 +470,8 @@ const Store = () => {
       district: branch.district,
       address: branch.address,
       status: branch.status,
+      openingTime: branch.openingTime ?? '07:00',
+      closingTime: branch.closingTime ?? '23:00',
     });
     setMapPosition([branch.latitude, branch.longitude]);
     setSearchQuery(branch.address ?? '');
@@ -480,6 +490,8 @@ const Store = () => {
       district: '',
       address: '',
       status: 'SHOW',
+      openingTime: '07:00',
+      closingTime: '23:00',
     });
     setMapPosition([21.0278, 105.8342]);
     setCurrentBranchCode(null);
@@ -695,6 +707,7 @@ const Store = () => {
                     <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Mã</th>
                     <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Cửa hàng</th>
                     <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Địa chỉ</th>
+                    <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Giờ hoạt động</th>
                     <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Vị trí</th>
                     <th className="px-6 py-4 text-left text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Trạng thái</th>
                     <th className="px-6 py-4 text-right text-[12px] font-black text-[#8C5A35] uppercase tracking-widest">Thao tác</th>
@@ -706,6 +719,7 @@ const Store = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-[13px] font-bold text-[#2C1E16]">{branch.branchCode}</td>
                       <td className="px-6 py-4 whitespace-nowrap"><div className="text-[13px] font-black text-[#2C1E16] uppercase tracking-wider">{branch.branchName}</div></td>
                       <td className="px-6 py-4 text-[13px] text-[#8C5A35] max-w-xs truncate font-medium">{branch.address}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-[13px] text-[#2C1E16] font-bold">{branch.openingTime || '07:00'} - {branch.closingTime || '23:00'}</td>
                       <td className="px-6 py-4 whitespace-nowrap"><div className="text-[12px] font-bold text-[#2C1E16]">{branch.city}</div><div className="text-[11px] text-[#8C5A35] font-medium">{branch.district}</div></td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest ${branch.status === 'SHOW' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>{branch.status === 'SHOW' ? 'Hoạt động' : 'Tạm nghỉ'}</span>
@@ -783,6 +797,16 @@ const Store = () => {
                     <div className="group">
                       <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Địa chỉ cụ thể *</label>
                       <input type="text" value={newBranch.address} onChange={(e) => setNewBranch({ ...newBranch, address: e.target.value })} className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm" placeholder="Số nhà, tên đường..." />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="group">
+                        <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Giờ mở cửa *</label>
+                        <input type="text" value={newBranch.openingTime} onChange={(e) => setNewBranch({ ...newBranch, openingTime: e.target.value })} className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm" placeholder="Ví dụ: 07:00" required />
+                      </div>
+                      <div className="group">
+                        <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Giờ đóng cửa *</label>
+                        <input type="text" value={newBranch.closingTime} onChange={(e) => setNewBranch({ ...newBranch, closingTime: e.target.value })} className="w-full px-4 py-3 bg-white border border-[#E5D5C5] rounded-2xl text-sm font-bold text-[#2C1E16] focus:ring-2 focus:ring-[#d4a373] focus:border-transparent outline-none transition-all shadow-sm" placeholder="Ví dụ: 23:00" required />
+                      </div>
                     </div>
                     <div className="group">
                       <label className="block text-[12px] font-black text-[#8C5A35] uppercase tracking-widest mb-2 ml-1">Tìm kiếm vị trí</label>
