@@ -40,6 +40,8 @@ const Revenue = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [period, setPeriod] = useState('month');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [report, setReport] = useState<RevenueReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
@@ -58,21 +60,40 @@ const Revenue = () => {
     }
 
     fetchRevenue();
-  }, [period, authLoading, navigate, user]);
+  }, [period, startDate, endDate, authLoading, navigate, user]);
 
   const fetchRevenue = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/api/dashboard/revenue-report?period=${period}`);
+      let url = `/api/dashboard/revenue-report`;
+      if (startDate && endDate) {
+        url += `?startDate=${startDate}&endDate=${endDate}`;
+      } else {
+        url += `?period=${period}`;
+      }
+      const response = await api.get(url);
       setReport(response.data);
     } catch (error: any) {
-      console.error(`Failed to fetch ${period} revenue:`, error);
+      console.error(`Failed to fetch revenue:`, error);
       toast.error('Không thể tải dữ liệu doanh thu. Vui lòng thử lại sau.', {
         className: 'bg-red-100 text-red-800'
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePeriodChange = (p: string) => {
+    setStartDate('');
+    setEndDate('');
+    setPeriod(p);
+  };
+
+  const getActiveReportLabel = () => {
+    if (startDate && endDate) {
+      return `Từ ${new Date(startDate).toLocaleDateString('vi-VN')} đến ${new Date(endDate).toLocaleDateString('vi-VN')}`;
+    }
+    return formatPeriodLabel(period);
   };
 
   const formatRevenue = (value: number) => {
@@ -105,7 +126,7 @@ const Revenue = () => {
     return date.toLocaleDateString('vi-VN', {
       day: '2-digit',
       month: '2-digit',
-      ...(period === 'year' && { year: 'numeric' })
+      ...((period === 'year' || (!period && startDate && endDate)) && { year: 'numeric' })
     });
   }) || [];
 
@@ -378,7 +399,7 @@ const Revenue = () => {
           {report && (
             <div className="flex gap-2">
               <button
-                onClick={() => printReport(report, formatPeriodLabel(period))}
+                onClick={() => printReport(report, getActiveReportLabel())}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                 title="In báo cáo"
               >
@@ -386,7 +407,7 @@ const Revenue = () => {
                 <span className="hidden sm:inline">In</span>
               </button>
               <button
-                onClick={() => exportToWord(report, period, formatPeriodLabel(period))}
+                onClick={() => exportToWord(report, startDate && endDate ? `${startDate}_${endDate}` : period, getActiveReportLabel())}
                 className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md"
                 title="Xuất Word"
               >
@@ -394,7 +415,7 @@ const Revenue = () => {
                 <span className="hidden sm:inline">Word</span>
               </button>
               <button
-                onClick={() => exportToExcel(report, period, formatPeriodLabel(period))}
+                onClick={() => exportToExcel(report, startDate && endDate ? `${startDate}_${endDate}` : period, getActiveReportLabel())}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md"
                 title="Xuất Excel"
               >
@@ -405,26 +426,67 @@ const Revenue = () => {
           )}
         </div>
 
-        <div className="mb-8 flex flex-wrap gap-2">
-          {['day', 'week', 'month', 'quarter', 'year'].map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              disabled={loading}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                period === p
-                ? 'bg-amber-600 text-white shadow-md'
-                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-              }`}
-            >
-              {formatPeriodLabel(p)}
-            </button>
-          ))}
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex flex-wrap gap-2">
+            {['day', 'week', 'month', 'quarter', 'year'].map(p => (
+              <button
+                key={p}
+                onClick={() => handlePeriodChange(p)}
+                disabled={loading}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                  period === p && !startDate && !endDate
+                  ? 'bg-amber-600 text-white shadow-md'
+                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                {formatPeriodLabel(p)}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-500">Hoặc chọn khoảng ngày:</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setPeriod('');
+                }}
+                disabled={loading}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+              />
+              <span className="text-gray-400">—</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setPeriod('');
+                }}
+                disabled={loading}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+              />
+            </div>
+            {(startDate || endDate) && (
+              <button
+                onClick={() => {
+                  setStartDate('');
+                  setEndDate('');
+                  setPeriod('month');
+                }}
+                className="text-xs text-red-500 hover:underline font-medium"
+              >
+                Xóa lọc
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-amber-500">
-            <h3 className="text-sm font-medium text-gray-500">Tổng Doanh thu ({formatPeriodLabel(period)})</h3>
+            <h3 className="text-sm font-medium text-gray-500">Tổng Doanh thu ({getActiveReportLabel()})</h3>
             <p className="text-2xl font-bold mt-1 text-gray-800">
               {report ? formatRevenue(report.totalRevenue) : '0'} VND
             </p>
@@ -438,7 +500,7 @@ const Revenue = () => {
             )}
           </div>
           <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-gray-500">
-            <h3 className="text-sm font-medium text-gray-500">Tổng Đơn hàng thành công ({formatPeriodLabel(period)})</h3>
+            <h3 className="text-sm font-medium text-gray-500">Tổng Đơn hàng thành công ({getActiveReportLabel()})</h3>
             <p className="text-2xl font-bold mt-1 text-gray-800">
               {report?.totalOrders?.toLocaleString('vi-VN') || 0}
             </p>
@@ -456,7 +518,7 @@ const Revenue = () => {
         <div className="bg-white rounded-xl shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">
-              Biểu đồ doanh thu theo thời gian - {formatPeriodLabel(period)}
+              Biểu đồ doanh thu theo thời gian - {getActiveReportLabel()}
             </h2>
 
             {/* Chart Type Toggle */}

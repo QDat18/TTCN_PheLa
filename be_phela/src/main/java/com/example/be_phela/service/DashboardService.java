@@ -87,6 +87,43 @@ public class DashboardService {
         }
     }
 
+    public RevenueReportDTO getCustomRevenueReport(String startDateStr, String endDateStr) {
+        try {
+            LocalDateTime start = java.time.LocalDate.parse(startDateStr).atStartOfDay();
+            LocalDateTime end = java.time.LocalDate.parse(endDateStr).atTime(java.time.LocalTime.MAX);
+
+            if (start.isAfter(end)) {
+                throw new IllegalArgumentException("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc");
+            }
+
+            List<Object[]> results = orderRepository.findRevenueAndOrderCountByDateRange(
+                    start, end, OrderStatus.DELIVERED);
+
+            List<RevenueReportDTO.DailyData> dailyData = results.stream()
+                    .map(this::mapToDailyData)
+                    .collect(Collectors.toList());
+
+            dailyData = fillMissingDates(dailyData, start, end);
+
+            double totalRevenue = dailyData.stream()
+                    .mapToDouble(RevenueReportDTO.DailyData::getRevenue)
+                    .sum();
+            long totalOrders = dailyData.stream()
+                    .mapToLong(RevenueReportDTO.DailyData::getOrderCount)
+                    .sum();
+
+            return RevenueReportDTO.builder()
+                    .totalRevenue(totalRevenue)
+                    .totalOrders(totalOrders)
+                    .dailyData(dailyData)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Error generating custom revenue report from {} to {}", startDateStr, endDateStr, e);
+            throw new RuntimeException("Failed to generate custom revenue report", e);
+        }
+    }
+
     public DashboardSummaryDTO getDashboardSummary() {
         try {
             LocalDateTime now = LocalDateTime.now();
@@ -162,7 +199,40 @@ public class DashboardService {
 
     public byte[] exportBranchRevenueExcel(String period) throws IOException {
         List<BranchRevenueDTO> data = getBranchRevenueReport(period);
-        
+        return generateBranchRevenueExcel(data);
+    }
+
+    public byte[] exportCustomBranchRevenueExcel(String startDateStr, String endDateStr) throws IOException {
+        List<BranchRevenueDTO> data = getCustomBranchRevenueReport(startDateStr, endDateStr);
+        return generateBranchRevenueExcel(data);
+    }
+
+    public List<BranchRevenueDTO> getCustomBranchRevenueReport(String startDateStr, String endDateStr) {
+        try {
+            LocalDateTime start = java.time.LocalDate.parse(startDateStr).atStartOfDay();
+            LocalDateTime end = java.time.LocalDate.parse(endDateStr).atTime(java.time.LocalTime.MAX);
+
+            if (start.isAfter(end)) {
+                throw new IllegalArgumentException("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc");
+            }
+
+            List<Object[]> results = orderRepository.findRevenueByBranchInDateRange(start, end, OrderStatus.DELIVERED);
+
+            return results.stream()
+                    .map(r -> BranchRevenueDTO.builder()
+                            .branchCode(r[0] != null ? (String) r[0] : "N/A")
+                            .branchName(r[1] != null ? (String) r[1] : "Chưa xác định")
+                            .totalRevenue(r[2] != null ? ((Number) r[2]).doubleValue() : 0.0)
+                            .orderCount(r[3] != null ? ((Number) r[3]).longValue() : 0L)
+                            .build())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error generating custom branch revenue report from {} to {}", startDateStr, endDateStr, e);
+            throw new RuntimeException("Failed to generate custom branch revenue report", e);
+        }
+    }
+
+    private byte[] generateBranchRevenueExcel(List<BranchRevenueDTO> data) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             XSSFSheet sheet = workbook.createSheet("Doanh thu chi nhánh");
             

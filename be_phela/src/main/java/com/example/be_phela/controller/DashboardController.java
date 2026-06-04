@@ -26,8 +26,13 @@ public class DashboardController {
 
     @GetMapping("/revenue-report")
     public ResponseEntity<RevenueReportDTO> getRevenueReport(
-            @RequestParam(defaultValue = "day") String period) {
-        return ResponseEntity.ok(dashboardService.getRevenueAndOrderReport(period));
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        if (startDate != null && endDate != null) {
+            return ResponseEntity.ok(dashboardService.getCustomRevenueReport(startDate, endDate));
+        }
+        return ResponseEntity.ok(dashboardService.getRevenueAndOrderReport(period != null ? period : "day"));
     }
 
     @GetMapping("/stats")
@@ -42,18 +47,33 @@ public class DashboardController {
 
     @GetMapping("/branch-revenue")
     public ResponseEntity<List<BranchRevenueDTO>> getBranchRevenue(
-            @RequestParam(defaultValue = "day") String period) {
-        return ResponseEntity.ok(dashboardService.getBranchRevenueReport(period));
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        if (startDate != null && endDate != null) {
+            return ResponseEntity.ok(dashboardService.getCustomBranchRevenueReport(startDate, endDate));
+        }
+        return ResponseEntity.ok(dashboardService.getBranchRevenueReport(period != null ? period : "day"));
     }
 
     @GetMapping("/export-branch-revenue")
     public ResponseEntity<byte[]> exportBranchRevenue(
-            @RequestParam(defaultValue = "day") String period) throws IOException {
-        byte[] excelContent = dashboardService.exportBranchRevenueExcel(period);
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) throws IOException {
+        byte[] excelContent;
+        String filenamePeriod;
+        if (startDate != null && endDate != null) {
+            excelContent = dashboardService.exportCustomBranchRevenueExcel(startDate, endDate);
+            filenamePeriod = startDate + "_" + endDate;
+        } else {
+            excelContent = dashboardService.exportBranchRevenueExcel(period != null ? period : "day");
+            filenamePeriod = period != null ? period : "day";
+        }
         
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", "ThongKeChiNhanh_" + period + ".xlsx");
+        headers.setContentDispositionFormData("attachment", "ThongKeChiNhanh_" + filenamePeriod + ".xlsx");
         
         return ResponseEntity.ok()
                 .headers(headers)
