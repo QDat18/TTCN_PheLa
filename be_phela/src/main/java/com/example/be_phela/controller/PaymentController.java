@@ -287,7 +287,7 @@ public class PaymentController {
 
         String digitsOnly = rawOrderCode.replaceAll("[^0-9]", "");
         if (!digitsOnly.isEmpty()) {
-            Optional<Order> directMatch = orderService.getOrderByCode("PL" + digitsOnly);
+            Optional<Order> directMatch = orderService.getOrderByCode("ORD" + digitsOnly);
             if (directMatch.isPresent()) {
                 return directMatch;
             }
@@ -295,7 +295,7 @@ public class PaymentController {
             try {
                 String paddedDigits = String.format("%09d", Long.parseLong(digitsOnly));
                 if (!paddedDigits.equals(digitsOnly)) {
-                    Optional<Order> paddedMatch = orderService.getOrderByCode("PL" + paddedDigits);
+                    Optional<Order> paddedMatch = orderService.getOrderByCode("ORD" + paddedDigits);
                     if (paddedMatch.isPresent()) {
                         return paddedMatch;
                     }
@@ -305,7 +305,7 @@ public class PaymentController {
             }
         }
 
-        String prefixed = rawOrderCode.startsWith("PL") ? rawOrderCode : "PL" + rawOrderCode;
+        String prefixed = rawOrderCode.startsWith("ORD") ? rawOrderCode : "ORD" + rawOrderCode;
         return orderService.getOrderByCode(prefixed);
     }
 

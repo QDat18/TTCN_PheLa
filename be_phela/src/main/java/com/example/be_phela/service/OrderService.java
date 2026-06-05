@@ -535,11 +535,11 @@ public class OrderService implements IOrderService {
         do {
             // Tạo mã số 9 chữ số ngẫu nhiên (100000000 - 999999999)
             long code = 100_000_000L + (long) (random.nextDouble() * 900_000_000L);
-            orderCode = "PL" + code;
+            orderCode = "ORD" + code;
             attempts++;
             if (attempts > 10) {
                 // Fallback: dùng timestamp phần cuối + random
-                orderCode = "PL" + (System.currentTimeMillis() % 1_000_000_000L);
+                orderCode = "ORD" + (System.currentTimeMillis() % 1_000_000_000L);
                 break;
             }
         } while (orderRepository.findByOrderCode(orderCode).isPresent());

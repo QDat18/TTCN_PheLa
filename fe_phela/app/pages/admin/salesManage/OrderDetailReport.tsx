@@ -137,7 +137,7 @@ const OrderDetailReport = () => {
 
     const getPaymentDescription = (code: string) => {
         const cleanCode = code.replace(/\s+/g, '');
-        return cleanCode.startsWith('PL') ? cleanCode : `PL${cleanCode}`;
+        return cleanCode.startsWith('ORD') ? cleanCode : `ORD${cleanCode}`;
     };
 
     const handlePrint = () => {
