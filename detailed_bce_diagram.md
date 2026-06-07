@@ -6,11 +6,12 @@ Tài liệu này chứa biểu đồ lớp mức thiết kế chi tiết cho to�
 
 ## 1. Bản Đồ Phân Phối Lớp (BCE + DAO Class Mapping)
 
-Hệ thống được chia thành 4 phân hệ chính:
+Hệ thống được chia thành 5 phân hệ chính:
 1.  **Phân hệ Thành viên & Tài khoản**: Quản lý đăng nhập, thông tin khách hàng, địa chỉ nhận hàng và lịch sử tích lũy điểm.
 2.  **Phân hệ Cửa hàng & Thực đơn**: Xem danh sách chi nhánh, lọc danh mục sản phẩm, xem chi tiết sản phẩm và size đi kèm.
 3.  **Phân hệ Giỏ hàng & Đặt hàng**: Quản lý giỏ hàng tạm thời, áp dụng mã giảm giá (Voucher), tính toán tiền ship, tạo hóa đơn đơn hàng và thanh toán.
 4.  **Phân hệ Tư vấn AI & Khiếu nại**: Hệ thống chatbot AI tự động tư vấn thực đơn qua Gemini API và tiếp nhận ý kiến khiếu nại từ khách hàng.
+5.  **Phân hệ Báo cáo & Dashboard**: Xem bảng điều khiển tóm tắt hoạt động, thống kê doanh thu theo chi nhánh/chu kỳ thời gian và phân tích phân bổ trạng thái đơn hàng/sản phẩm bán ra theo danh mục.
 
 ---
 
@@ -103,6 +104,33 @@ classDiagram
         +nutGuiKhieuNaiClick() void
     }
 
+    class GiaoDienDashboard {
+        <<Boundary / UI>>
+        +statsKPIs: Object
+        +weeklyRevenueData: List
+        +recentOrders: List
+        +hienThiDashboard() void
+        +nutThaoTacNhanhClick(String action) void
+    }
+
+    class GiaoDienBaoCaoDoanhThu {
+        <<Boundary / UI>>
+        +periodSelected: String
+        +branchSelected: String
+        +revenueData: List
+        +hienThiBaoCao() void
+        +locBaoCaoClick(String period, String branch) void
+        +nutXuatExcelClick() void
+    }
+
+    class GiaoDienBaoCaoDonHang {
+        <<Boundary / UI>>
+        +summaryOrders: Object
+        +statusData: List
+        +categoryData: List
+        +hienThiBaoCao() void
+    }
+
     %% DTOs
     class OrderCreateRequest {
         <<Boundary / DTO>>
@@ -162,6 +190,19 @@ classDiagram
         +ghiNhanKhieuNai(String customerId, String orderId, String content) Complaint
     }
 
+    class DieuKhienBaoCao {
+        <<Control>>
+        -OrderDAO orderDAO
+        -ProductDAO productDAO
+        -CustomerDAO customerDAO
+        -BranchDAO branchDAO
+        -AdminDAO adminDAO
+        +layThongTinDashboard(String token) Object
+        +layBaoCaoDoanhThuChiNhanh(String token, String period) List
+        +layBaoCaoDonHangAnl(String token) Object
+        +xuatFileExcelDoanhThuChiNhanh(String period) byte[]
+    }
+
     %% ---------------------------------------------
     %% DAO CLASSES (Data Access Objects)
     %% ---------------------------------------------
@@ -169,16 +210,19 @@ classDiagram
         <<Interface / DAO>>
         +save(Customer c) void
         +findById(String id) Customer
+        +count() long
     }
     class BranchDAO {
         <<Interface / DAO>>
         +save(Branch b) void
         +findByCode(String code) Branch
+        +findAll() List~Branch~
     }
     class ProductDAO {
         <<Interface / DAO>>
         +save(Product p) void
         +findByCategory(String catCode) List~Product~
+        +countActiveProducts() long
     }
     class CartDAO {
         <<Interface / DAO>>
@@ -189,6 +233,12 @@ classDiagram
         <<Interface / DAO>>
         +save(Order o) void
         +findById(String id) Order
+        +findWeeklyRevenue() List
+        +countOrdersToday() long
+        +sumRevenueThisMonth() double
+        +findBranchRevenue(String period) List
+        +countOrdersAndCancelledIn30Days() Object
+        +countOrdersByStatus() List
     }
     class ConversationDAO {
         <<Interface / DAO>>
@@ -199,6 +249,10 @@ classDiagram
         <<Interface / DAO>>
         +save(Complaint comp) void
         +findById(String id) Complaint
+    }
+    class AdminDAO {
+        <<Interface / DAO>>
+        +count() long
     }
 
     %% ---------------------------------------------
@@ -358,6 +412,9 @@ classDiagram
     style GiaoDienDatHang boundary
     style GiaoDienKhungChat boundary
     style GiaoDienKhieuNai boundary
+    style GiaoDienDashboard boundary
+    style GiaoDienBaoCaoDoanhThu boundary
+    style GiaoDienBaoCaoDonHang boundary
     style OrderCreateRequest boundary
     style OrderResponse boundary
 
@@ -366,6 +423,7 @@ classDiagram
     style DieuKhienGioHang control
     style DieuKhienDonHang control
     style DieuKhienTuVan control
+    style DieuKhienBaoCao control
 
     style CustomerDAO dao
     style BranchDAO dao
@@ -374,6 +432,7 @@ classDiagram
     style OrderDAO dao
     style ConversationDAO dao
     style ComplaintDAO dao
+    style AdminDAO dao
 
     style Customer entity
     style Address entity
@@ -403,6 +462,10 @@ classDiagram
     Customer_Actor --> GiaoDienDatHang : Tương tác
     Customer_Actor --> GiaoDienKhungChat : Tương tác
     Customer_Actor --> GiaoDienKhieuNai : Tương tác
+    
+    Admin_Actor --> GiaoDienDashboard : Tương tác
+    Admin_Actor --> GiaoDienBaoCaoDoanhThu : Tương tác
+    Admin_Actor --> GiaoDienBaoCaoDonHang : Tương tác
 
     %% Boundary UI to Control Classes
     GiaoDienDangNhap --> DieuKhienHeThong : +Goi xu ly
@@ -412,6 +475,10 @@ classDiagram
     GiaoDienDatHang --> DieuKhienDonHang : +Goi xu ly
     GiaoDienKhungChat --> DieuKhienTuVan : +Goi xu ly
     GiaoDienKhieuNai --> DieuKhienTuVan : +Goi xu ly
+    
+    GiaoDienDashboard --> DieuKhienBaoCao : +Goi xu ly
+    GiaoDienBaoCaoDoanhThu --> DieuKhienBaoCao : +Goi xu ly
+    GiaoDienBaoCaoDonHang --> DieuKhienBaoCao : +Goi xu ly
 
     %% Control to Entity (Điều phối nghiệp vụ)
     DieuKhienHeThong --> Customer : +Dieu phoi
@@ -421,6 +488,7 @@ classDiagram
     DieuKhienDonHang --> Order : +Dieu phoi
     DieuKhienTuVan --> Conversation : +Dieu phoi
     DieuKhienTuVan --> Complaint : +Dieu phoi
+    DieuKhienBaoCao --> Order : +Dieu phoi
 
     %% Control to DAO (Truy xuất CSDL)
     DieuKhienHeThong --> CustomerDAO : +Truy xuat
@@ -430,6 +498,12 @@ classDiagram
     DieuKhienDonHang --> OrderDAO : +Truy xuat
     DieuKhienTuVan --> ConversationDAO : +Truy xuat
     DieuKhienTuVan --> ComplaintDAO : +Truy xuat
+    
+    DieuKhienBaoCao --> OrderDAO : +Truy xuat
+    DieuKhienBaoCao --> ProductDAO : +Truy xuat
+    DieuKhienBaoCao --> CustomerDAO : +Truy xuat
+    DieuKhienBaoCao --> BranchDAO : +Truy xuat
+    DieuKhienBaoCao --> AdminDAO : +Truy xuat
 
     %% DAO to Entity (Quản lý)
     CustomerDAO --> Customer : +Quan ly
@@ -468,46 +542,3 @@ classDiagram
 
     Conversation "1" *-- "0..*" ConversationMessage : +Gom (Composition)
 ```
-
----
-
-## 3. Mô tả Các Lớp Trong Hệ Thống (Class Descriptions)
-
-### 3.1. Các Lớp Biên (Boundary Layer - UI & API)
-
-*   `GiaoDienDangNhap`: Cho phép khách hàng điền tài khoản, mật khẩu, gửi yêu cầu đăng ký hoặc đăng nhập lên hệ thống.
-*   `GiaoDienThanhVien`: Hiển thị thông tin profile khách hàng, điểm tích lũy hiện tại và cho phép cập nhật thông tin cá nhân hoặc quản lý danh sách địa chỉ nhận hàng.
-*   `GiaoDienCuaHang`: Hiển thị danh sách các chi nhánh của Phê La và thực đơn đồ uống theo các danh mục sản phẩm (Trà ô long, Cà phê, Topping...).
-*   `GiaoDienGioHang`: Hiển thị danh sách các món uống đang được thêm tạm thời trong giỏ hàng, cho phép thay đổi số lượng hoặc xóa bỏ.
-*   `GiaoDienDatHang`: Giao diện Checkout, hiển thị thông tin hóa đơn tạm tính, cho phép áp dụng Voucher giảm giá, chọn địa chỉ giao hàng và xác nhận đặt hàng.
-*   `GiaoDienKhungChat`: Giao diện chat trực tuyến hỗ trợ khách hàng đặt câu hỏi tư vấn thực đơn cho trợ lý AI Gemini.
-*   `GiaoDienKhieuNai`: Biểu mẫu nhập nội dung phản hồi, ý kiến khiếu nại về chất lượng đơn hàng.
-*   `OrderCreateRequest` & `OrderResponse`: Các lớp DTO trung gian chịu trách nhiệm đóng gói tham số nhận và dữ liệu phản hồi giữa Client và Server.
-
-### 3.2. Các Lớp Điều Khiển (Control Layer - Managers)
-
-*   `DieuKhienHeThong`: Xử lý logic đăng ký, mã hóa mật khẩu, kiểm tra quyền truy cập đăng nhập và truy xuất thông tin tài khoản thành viên.
-*   `DieuKhienCuaHang`: Cung cấp danh sách các chi nhánh đang hoạt động và hỗ trợ chức năng tìm kiếm sản phẩm trong thực đơn.
-*   `DieuKhienGioHang`: Thực hiện logic thêm món mới, cập nhật số lượng món uống, hoặc xóa bớt món khỏi giỏ hàng.
-*   `DieuKhienDonHang`: Thực hiện các phép tính tiền (tổng tiền món, giảm giá voucher, tính toán phí ship dựa trên khoảng cách địa lý) và quản lý trạng thái của hóa đơn (Đang chuẩn bị, Đang giao, Đã hoàn thành, Đã hủy).
-*   `DieuKhienTuVan`: Kết nối với API Trí tuệ Nhân tạo để tạo câu trả lời tự động cho khách hàng, đồng thời hỗ trợ ghi nhận các khiếu nại về đơn hàng.
-
-### 3.3. Các Lớp DAO (Data Access Object - <<DAO>>)
-
-*   `CustomerDAO`, `BranchDAO`, `ProductDAO`, `CartDAO`, `OrderDAO`, `ConversationDAO`, `ComplaintDAO`: Các giao diện (Interface) định nghĩa các phương thức thao tác đọc/ghi cơ sở dữ liệu quan hệ (CRUD) tương ứng với từng thực thể hệ thống.
-
-### 3.4. Các Lớp Thực Thể (Entity Layer - Domain Objects)
-
-*   `Customer`: Chứa thông tin tài khoản khách hàng, số điểm tích lũy và xếp hạng thành viên (Đồng, Bạc, Vàng, Kim Cương).
-*   `Address`: Danh sách địa chỉ nhận hàng của khách hàng (mỗi khách hàng có thể có nhiều địa chỉ).
-*   `PointHistory`: Lịch sử cộng hoặc tiêu điểm tích lũy của khách hàng mỗi khi đặt đơn mới hoặc đổi quà tặng.
-*   `Branch`: Thông tin chi tiết về từng chi nhánh của Phê La (tên cửa hàng, địa chỉ, trạng thái hoạt động).
-*   `Product`: Thông tin sản phẩm bao gồm mã, tên món uống, mô tả, giá gốc, giá khuyến mãi và cờ đánh dấu sản phẩm quà tặng.
-*   `Category`: Danh mục sản phẩm (ví dụ: "Trà Ô Long", "Bộ sưu tập", "Đồ ăn kèm").
-*   `ProductSize`: Các loại size khả dụng của sản phẩm (S, M, L) và giá chênh lệch của mỗi size.
-*   `Cart` & `CartItem`: Thông tin giỏ hàng tạm thời và danh sách các món uống được chọn bao gồm số lượng.
-*   `Order`: Thông tin đơn đặt hàng chính thức của khách (mã hóa đơn, tổng tiền, phương thức thanh toán, địa chỉ giao hàng và trạng thái đơn hàng).
-*   `OrderItem` & `OrderItemTopping`: Chi tiết các món uống trong đơn đặt hàng và danh sách các loại topping đi kèm (như trân châu, kem cheese).
-*   `Voucher`: Mã giảm giá có thể áp dụng cho các đơn hàng đủ điều kiện giá trị tối thiểu.
-*   `Conversation` & `ConversationMessage`: Lịch sử cuộc trò chuyện tư vấn của khách hàng với Trợ lý ảo AI.
-*   `Complaint`: Thông tin chi tiết phản hồi khiếu nại của khách hàng liên quan đến chất lượng đồ uống hoặc thái độ phục vụ.

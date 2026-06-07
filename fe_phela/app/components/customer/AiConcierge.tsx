@@ -359,16 +359,49 @@ const AiConcierge = () => {
                                                             </div>
                                                         </>
                                                     )}
-                                                    {item.type === 'voucher' && (
-                                                        <div className="ai-voucher-card flex flex-col h-full">
-                                                            <div className="ai-voucher-badge">{item.value}</div>
-                                                            <div className="ai-voucher-name">{item.name}</div>
-                                                            <div className="ai-voucher-expiry">HSD: {item.endDate}</div>
-                                                            <button
-                                                                className="ai-card-btn ai-voucher-btn"
-                                                                onClick={() => handleCopyVoucher(item.code)}
+                                                    {item.type === 'voucher' && (() => {
+                                                        const val = item.value || item.discount;
+                                                        const exp = item.endDate || item.expiry || 'Vô thời hạn';
+                                                        let displayVal = 'Ưu đãi';
+                                                        if (val) {
+                                                            if (typeof val === 'number') {
+                                                                displayVal = val >= 1000 ? `${(val / 1000)}k` : `${val}%`;
+                                                            } else {
+                                                                displayVal = String(val);
+                                                            }
+                                                        }
+                                                        return (
+                                                            <div className="ai-voucher-card flex flex-col h-full justify-between">
+                                                                <div className="ai-voucher-badge">{displayVal}</div>
+                                                                <div className="ai-voucher-name">{item.name || item.description}</div>
+                                                                <div className="ai-voucher-expiry">HSD: {exp}</div>
+                                                                <button
+                                                                    className="ai-card-btn ai-voucher-btn"
+                                                                    onClick={() => handleCopyVoucher(item.code)}
+                                                                >
+                                                                    Copy mã: {item.code}
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                    {item.type === 'branch' && (
+                                                        <div className="flex flex-col h-full p-4 bg-[#FCF8F1] justify-between flex-grow text-[#2C1E16]">
+                                                            <div className="flex flex-col gap-2">
+                                                                <div className="w-10 h-10 rounded-full bg-[#8C5A35]/10 text-[#8C5A35] flex items-center justify-center text-lg self-center mb-1">
+                                                                    📍
+                                                                </div>
+                                                                <div className="font-extrabold text-xs text-center line-clamp-2 min-h-[32px] leading-tight">
+                                                                    {item.name}
+                                                                </div>
+                                                                <div className="text-[10px] text-gray-500 text-center line-clamp-3 min-h-[42px] leading-normal font-medium">
+                                                                    {item.address}
+                                                                </div>
+                                                            </div>
+                                                            <button 
+                                                                className="ai-card-btn ai-product-btn mt-4 cursor-pointer"
+                                                                onClick={() => window.open('/he-thong-cua-hang', '_blank')}
                                                             >
-                                                                Copy mã: {item.code}
+                                                                Bản đồ
                                                             </button>
                                                         </div>
                                                     )}

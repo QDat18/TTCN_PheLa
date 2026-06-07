@@ -28,4 +28,6 @@ public interface IAdminService {
     AdminResponseDTO updateAdminStatus(String username, Status newStatus, String currentUsername);
     AdminResponseDTO assignBranchToAdmin(String username, String branchCode, String currentUsername);
     AdminResponseDTO updateAdminPassword(String username, AdminPasswordUpdateDTO passwordDTO);
+    AdminResponseDTO createAdmin(AdminCreateDTO adminCreateDTO);
+    void deleteAdmin(String username);
 }

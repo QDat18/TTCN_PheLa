@@ -13,6 +13,8 @@ public interface AdminRepository extends JpaRepository<Admin, String> {
     Boolean existsByUsername(String name);
     Optional<Admin> findByEmail(String email);
     Boolean existsByEmail(String email);
+    Boolean existsByEmployCode(String employCode);
+    Boolean existsByFullname(String fullname);
     List<Admin> findByRole(Roles role);
     Optional<Admin> findById(String id);
 }

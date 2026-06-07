@@ -11,12 +11,58 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.example.be_phela.model.enums.PaymentMethod;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
+
+    @Query("SELECT o FROM orders o WHERE " +
+           "(:hasStatus = false OR o.status = :status) AND " +
+           "(:hasBranch = false OR o.branch.branchCode = :branchCode) AND " +
+           "(:hasPaymentMethod = false OR o.paymentMethod = :paymentMethod) AND " +
+           "(:hasStartDate = false OR o.orderDate >= :startDate) AND " +
+           "(:hasEndDate = false OR o.orderDate <= :endDate) AND " +
+           "(:hasQuery = false OR LOWER(o.orderCode) LIKE LOWER(CONCAT('%', :query, '%')) OR o.phone LIKE CONCAT('%', :query, '%') OR o.customer.phone LIKE CONCAT('%', :query, '%'))")
+    Page<Order> searchAndFilterOrders(
+            @Param("hasStatus") boolean hasStatus,
+            @Param("status") OrderStatus status,
+            @Param("hasBranch") boolean hasBranch,
+            @Param("branchCode") String branchCode,
+            @Param("hasPaymentMethod") boolean hasPaymentMethod,
+            @Param("paymentMethod") PaymentMethod paymentMethod,
+            @Param("hasStartDate") boolean hasStartDate,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("hasEndDate") boolean hasEndDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("hasQuery") boolean hasQuery,
+            @Param("query") String query,
+            Pageable pageable
+    );
+
+    @Query("SELECT o FROM orders o WHERE " +
+           "(:hasStatus = false OR o.status = :status) AND " +
+           "(:hasBranch = false OR o.branch.branchCode = :branchCode) AND " +
+           "(:hasPaymentMethod = false OR o.paymentMethod = :paymentMethod) AND " +
+           "(:hasStartDate = false OR o.orderDate >= :startDate) AND " +
+           "(:hasEndDate = false OR o.orderDate <= :endDate) AND " +
+           "(:hasQuery = false OR LOWER(o.orderCode) LIKE LOWER(CONCAT('%', :query, '%')) OR o.phone LIKE CONCAT('%', :query, '%') OR o.customer.phone LIKE CONCAT('%', :query, '%'))")
+    List<Order> searchAndFilterOrdersList(
+            @Param("hasStatus") boolean hasStatus,
+            @Param("status") OrderStatus status,
+            @Param("hasBranch") boolean hasBranch,
+            @Param("branchCode") String branchCode,
+            @Param("hasPaymentMethod") boolean hasPaymentMethod,
+            @Param("paymentMethod") PaymentMethod paymentMethod,
+            @Param("hasStartDate") boolean hasStartDate,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("hasEndDate") boolean hasEndDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("hasQuery") boolean hasQuery,
+            @Param("query") String query
+    );
 
     List<Order> findByCustomer_CustomerIdOrderByOrderDateDesc(String customerId);
     

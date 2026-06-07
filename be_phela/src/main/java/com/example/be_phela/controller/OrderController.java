@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -75,5 +76,80 @@ public class OrderController {
     public ResponseEntity<OrderResponseDTO> confirmReceipt(@PathVariable String orderId) {
         OrderResponseDTO orderResponse = orderService.confirmReceipt(orderId);
         return ResponseEntity.ok(orderResponse);
+    }
+
+    @GetMapping("/search-filter")
+    public ResponseEntity<Page<OrderResponseDTO>> searchAndFilterOrders(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String branchCode,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String query,
+            Pageable pageable) {
+        
+        OrderStatus orderStatus = null;
+        if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
+            try {
+                orderStatus = OrderStatus.valueOf(status.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid status
+            }
+        }
+        
+        com.example.be_phela.model.enums.PaymentMethod pm = null;
+        if (paymentMethod != null && !paymentMethod.trim().isEmpty() && !paymentMethod.equalsIgnoreCase("ALL")) {
+            try {
+                pm = com.example.be_phela.model.enums.PaymentMethod.valueOf(paymentMethod.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid payment method
+            }
+        }
+        
+        Page<OrderResponseDTO> orders = orderService.searchAndFilterOrders(
+                orderStatus, branchCode, pm, startDate, endDate, query, pageable);
+        return ResponseEntity.ok(orders);
+    }
+
+    @GetMapping("/export-excel")
+    public ResponseEntity<byte[]> exportOrdersExcel(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String branchCode,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String query) throws java.io.IOException {
+        
+        OrderStatus orderStatus = null;
+        if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
+            try {
+                orderStatus = OrderStatus.valueOf(status.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid status
+            }
+        }
+        
+        com.example.be_phela.model.enums.PaymentMethod pm = null;
+        if (paymentMethod != null && !paymentMethod.trim().isEmpty() && !paymentMethod.equalsIgnoreCase("ALL")) {
+            try {
+                pm = com.example.be_phela.model.enums.PaymentMethod.valueOf(paymentMethod.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid payment method
+            }
+        }
+        
+        byte[] excelBytes = orderService.exportOrdersExcel(
+                orderStatus, branchCode, pm, startDate, endDate, query);
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM);
+        
+        java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+        String filename = "DanhSachDonHang_" + java.time.LocalDateTime.now().format(dtf) + ".xlsx";
+        headers.setContentDispositionFormData("attachment", filename);
+        
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelBytes);
     }
 }

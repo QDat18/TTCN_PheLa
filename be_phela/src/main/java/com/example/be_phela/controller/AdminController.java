@@ -99,4 +99,16 @@ public class AdminController {
         AdminResponseDTO updatedAdmin = adminService.updateAdminPassword(username, passwordDTO);
         return ResponseEntity.ok(updatedAdmin);
     }
+
+    @PostMapping("/create")
+    public ResponseEntity<AdminResponseDTO> createAdmin(@RequestBody @Valid AdminCreateDTO adminCreateDTO) {
+        AdminResponseDTO newAdmin = adminService.createAdmin(adminCreateDTO);
+        return ResponseEntity.ok(newAdmin);
+    }
+
+    @DeleteMapping("/{username}")
+    public ResponseEntity<Void> deleteAdmin(@PathVariable String username) {
+        adminService.deleteAdmin(username);
+        return ResponseEntity.noContent().build();
+    }
 }

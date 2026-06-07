@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 
 // Interfaces
 type OrderStatus = 'PENDING' | 'CONFIRMED' | 'DELIVERING' | 'DELIVERED' | 'CANCELLED';
+type OrderTabStatus = 'ALL' | OrderStatus;
 
 interface Order {
   orderId: string;
@@ -16,9 +17,10 @@ interface Order {
   orderItems: any[];
 }
 
-const STATUSES: OrderStatus[] = ['PENDING', 'CONFIRMED', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
+const STATUSES: OrderTabStatus[] = ['ALL', 'PENDING', 'CONFIRMED', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
+const STATUS_LABELS: Record<OrderTabStatus, string> = {
+  'ALL': 'Tất cả',
   'PENDING': 'Chờ xác nhận',
   'CONFIRMED': 'Đã xác nhận',
   'DELIVERING': 'Đang giao',
@@ -30,8 +32,33 @@ const Order = () => {
   const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('PENDING');
+  const [selectedStatus, setSelectedStatus] = useState<OrderTabStatus>('ALL');
 
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [appliedQuery, setAppliedQuery] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [branches, setBranches] = useState<any[]>([]);
+
+  // Fetch Branches
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const response = await api.get('/api/branch');
+        if (Array.isArray(response.data)) {
+          setBranches(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch branches:", error);
+      }
+    };
+    fetchBranches();
+  }, []);
+
+  // Fetch Orders based on Status and Filters
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -42,7 +69,31 @@ const Order = () => {
     const fetchOrders = async () => {
       setLoading(true);
       try {
-        const response = await api.get(`/api/order/status/${selectedStatus}`);
+        const params: any = {
+          page: 0,
+          size: 100, // Load more rows for search/filter results
+        };
+
+        if (selectedStatus !== 'ALL') {
+          params.status = selectedStatus;
+        }
+        if (selectedBranch) {
+          params.branchCode = selectedBranch;
+        }
+        if (selectedPaymentMethod) {
+          params.paymentMethod = selectedPaymentMethod;
+        }
+        if (startDate) {
+          params.startDate = startDate;
+        }
+        if (endDate) {
+          params.endDate = endDate;
+        }
+        if (appliedQuery) {
+          params.query = appliedQuery;
+        }
+
+        const response = await api.get('/api/order/search-filter', { params });
         const data = response.data;
         if (data && Array.isArray(data.content)) {
           setOrders(data.content);
@@ -58,8 +109,79 @@ const Order = () => {
         setLoading(false);
       }
     };
+
     fetchOrders();
-  }, [selectedStatus, user, authLoading]);
+  }, [selectedStatus, selectedBranch, selectedPaymentMethod, startDate, endDate, appliedQuery, user, authLoading]);
+
+  const handleSearch = () => {
+    setAppliedQuery(searchQuery);
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setAppliedQuery('');
+    setSelectedBranch('');
+    setSelectedPaymentMethod('');
+    setStartDate('');
+    setEndDate('');
+    setSelectedStatus('ALL');
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const params: any = {};
+      if (selectedStatus !== 'ALL') {
+        params.status = selectedStatus;
+      }
+      if (selectedBranch) {
+        params.branchCode = selectedBranch;
+      }
+      if (selectedPaymentMethod) {
+        params.paymentMethod = selectedPaymentMethod;
+      }
+      if (startDate) {
+        params.startDate = startDate;
+      }
+      if (endDate) {
+        params.endDate = endDate;
+      }
+      if (appliedQuery) {
+        params.query = appliedQuery;
+      }
+
+      toast.info("Đang chuẩn bị xuất file Excel...");
+      
+      const response = await api.get('/api/order/export-excel', {
+        params,
+        responseType: 'blob'
+      });
+
+      const disposition = response.headers['content-disposition'];
+      let filename = `DanhSachDonHang_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
+      if (disposition && disposition.indexOf('attachment') !== -1) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(disposition);
+        if (matches != null && matches[1]) { 
+          filename = matches[1].replace(/['"]/g, '');
+        }
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Xuất file Excel thành công!");
+    } catch (error) {
+      console.error("Export Excel failed:", error);
+      toast.error("Không thể xuất file Excel");
+    }
+  };
 
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
     if (!user?.username) {
@@ -75,7 +197,11 @@ const Order = () => {
         }
       });
       toast.success('Cập nhật trạng thái thành công!');
-      setOrders(orders.filter(o => o.orderId !== orderId));
+      if (selectedStatus !== 'ALL') {
+        setOrders(orders.filter(o => o.orderId !== orderId));
+      } else {
+        setOrders(orders.map(o => o.orderId === orderId ? { ...o, status: newStatus } : o));
+      }
     } catch (error: any) {
       toast.error(`Lỗi: ${error.response?.data?.message || 'Không thể cập nhật'}`);
     }
@@ -98,15 +224,12 @@ const Order = () => {
 
     // Filter based on role permissions
     if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
-      // Admin can do everything
       return nextStatuses;
     } else if (role === 'STAFF') {
-      // Staff can confirm orders and mark as delivering
       return nextStatuses.filter(status =>
         status === 'CONFIRMED' || status === 'DELIVERING' || status === 'CANCELLED'
       );
     } else if (role === 'DELIVERY_STAFF') {
-      // Delivery staff can only mark as delivered
       return nextStatuses.filter(status => status === 'DELIVERED');
     }
 
@@ -148,8 +271,8 @@ const Order = () => {
                 key={status}
                 onClick={() => setSelectedStatus(status)}
                 className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${selectedStatus === status
-                    ? 'bg-[#d4a373] text-white shadow-lg'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  ? 'bg-[#d4a373] text-white shadow-lg'
+                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                   }`}
               >
                 {STATUS_LABELS[status]}
@@ -161,6 +284,120 @@ const Order = () => {
               </button>
             );
           })}
+        </div>
+
+        {/* Search and Filter panel */}
+        <div className="bg-white p-6 rounded-xl shadow-md mb-6 border border-gray-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* Search Input */}
+            <div className="flex flex-col">
+              <label htmlFor="search-input" className="text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Tìm kiếm</label>
+              <div className="relative flex">
+                <input
+                  id="search-input"
+                  type="text"
+                  placeholder="Mã đơn, số điện thoại..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch();
+                    }
+                  }}
+                  className="w-full text-sm rounded-l-md border-gray-300 shadow-sm focus:border-[#d4a373] focus:ring focus:ring-[#d4a373] focus:ring-opacity-50 pr-8"
+                />
+                <button
+                  onClick={handleSearch}
+                  className="bg-[#d4a373] text-white px-4 rounded-r-md text-sm font-medium hover:bg-[#b38a5a] transition-colors"
+                >
+                  Tìm
+                </button>
+              </div>
+            </div>
+
+            {/* Branch Filter */}
+            <div className="flex flex-col">
+              <label htmlFor="branch-select" className="text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Chi nhánh</label>
+              <select
+                id="branch-select"
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="text-sm rounded-md border-gray-300 shadow-sm focus:border-[#d4a373] focus:ring focus:ring-[#d4a373] focus:ring-opacity-50"
+              >
+                <option value="">Tất cả chi nhánh</option>
+                {branches.map(b => (
+                  <option key={b.branchCode} value={b.branchCode}>{b.branchName}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Payment Method Filter */}
+            <div className="flex flex-col">
+              <label htmlFor="payment-method-select" className="text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Thanh toán</label>
+              <select
+                id="payment-method-select"
+                value={selectedPaymentMethod}
+                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                className="text-sm rounded-md border-gray-300 shadow-sm focus:border-[#d4a373] focus:ring focus:ring-[#d4a373] focus:ring-opacity-50"
+              >
+                <option value="">Tất cả hình thức</option>
+                <option value="COD">COD (Tiền mặt)</option>
+                <option value="BANK_TRANSFER">BANK TRANSFER (Chuyển khoản)</option>
+                <option value="SEPAY">SEPAY</option>
+              </select>
+            </div>
+
+            {/* Date Range Filter */}
+            <div className="flex flex-col">
+              <label htmlFor="start-date-input" className="text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Khoảng thời gian</label>
+              <div className="flex space-x-2 items-center">
+                <input
+                  id="start-date-input"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-1/2 text-sm rounded-md border-gray-300 shadow-sm focus:border-[#d4a373] focus:ring focus:ring-[#d4a373] focus:ring-opacity-50"
+                />
+                <span className="text-gray-400 text-xs">đến</span>
+                <input
+                  id="end-date-input"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-1/2 text-sm rounded-md border-gray-300 shadow-sm focus:border-[#d4a373] focus:ring focus:ring-[#d4a373] focus:ring-opacity-50"
+                />
+              </div>
+            </div>
+
+          </div>
+
+          {/* Reset Filters Option */}
+          <div className="flex justify-between items-center mt-4">
+            <div>
+              <button
+                onClick={handleExportExcel}
+                className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Xuất file Excel
+              </button>
+            </div>
+
+            {(appliedQuery || selectedBranch || selectedPaymentMethod || startDate || endDate || selectedStatus !== 'ALL') && (
+              <button
+                onClick={handleClearFilters}
+                className="text-sm font-medium text-gray-500 hover:text-red-500 transition-colors flex items-center gap-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                Đặt lại bộ lọc
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
@@ -238,7 +475,6 @@ const Order = () => {
           </div>
         )}
       </div>
-
     </div>
   );
 };

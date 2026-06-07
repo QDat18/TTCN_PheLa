@@ -24,4 +24,21 @@ public interface IOrderService {
     Page<OrderResponseDTO> getOrdersByStatus(OrderStatus status, Pageable pageable);
     CustomerResponseDTO getCustomerByOrderId(String orderId);
     OrderResponseDTO confirmReceipt(String orderId);
+    Page<OrderResponseDTO> searchAndFilterOrders(
+            OrderStatus status,
+            String branchCode,
+            com.example.be_phela.model.enums.PaymentMethod paymentMethod,
+            String startDateStr,
+            String endDateStr,
+            String query,
+            Pageable pageable
+    );
+    byte[] exportOrdersExcel(
+            OrderStatus status,
+            String branchCode,
+            com.example.be_phela.model.enums.PaymentMethod paymentMethod,
+            String startDateStr,
+            String endDateStr,
+            String query
+    ) throws java.io.IOException;
 }

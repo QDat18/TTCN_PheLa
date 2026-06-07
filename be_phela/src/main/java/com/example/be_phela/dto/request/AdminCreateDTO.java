@@ -39,6 +39,10 @@ public class AdminCreateDTO {
 
     private String branch;
 
+    private String employCode;
+    private String role;
+    private String status;
+
     public AdminCreateDTO() {}
 
     public AdminCreateDTO(String fullname, String username, String password, LocalDate dob, String email, String phone, String gender, String branch) {
@@ -76,4 +80,13 @@ public class AdminCreateDTO {
 
     public String getBranch() { return branch; }
     public void setBranch(String branch) { this.branch = branch; }
+
+    public String getEmployCode() { return employCode; }
+    public void setEmployCode(String employCode) { this.employCode = employCode; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

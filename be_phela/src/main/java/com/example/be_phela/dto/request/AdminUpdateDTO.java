@@ -27,6 +27,9 @@ public class AdminUpdateDTO {
     @NotBlank(message = "Giới tính không được để trống")
     private String gender;
 
+    private String role;
+    private String status;
+
     public AdminUpdateDTO() {}
 
     public AdminUpdateDTO(String fullname, LocalDate dob, String email, String phone, String gender) {
@@ -35,6 +38,16 @@ public class AdminUpdateDTO {
         this.email = email;
         this.phone = phone;
         this.gender = gender;
+    }
+
+    public AdminUpdateDTO(String fullname, LocalDate dob, String email, String phone, String gender, String role, String status) {
+        this.fullname = fullname;
+        this.dob = dob;
+        this.email = email;
+        this.phone = phone;
+        this.gender = gender;
+        this.role = role;
+        this.status = status;
     }
 
     // Getters and Setters
@@ -52,4 +65,10 @@ public class AdminUpdateDTO {
 
     public String getGender() { return gender; }
     public void setGender(String gender) { this.gender = gender; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

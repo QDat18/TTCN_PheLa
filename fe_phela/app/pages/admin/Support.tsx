@@ -55,6 +55,8 @@ interface Order {
     items?: OrderItem[];
 }
 
+const PLACEHOLDER_IMAGE = 'https://res.cloudinary.com/dj9m8q7n8/image/upload/v1712920000/phela_placeholder.png';
+
 const Support = () => {
     const { user } = useAuth();
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -90,6 +92,27 @@ const Support = () => {
             return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
         }
         return d.toLocaleDateString('vi-VN');
+    };
+
+    const parseAiResponse = (content: string) => {
+        if (!content) return { text: '', richCards: [] };
+        const jsonStartIndex = content.indexOf('[JSON_START]');
+        const jsonEndIndex = content.indexOf('[JSON_END]');
+        
+        let cleanedText = content;
+        let richCards: any[] = [];
+
+        if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+            const jsonStr = content.substring(jsonStartIndex + 12, jsonEndIndex);
+            cleanedText = content.substring(0, jsonStartIndex).trim();
+            try {
+                const parsed = JSON.parse(jsonStr);
+                richCards = Array.isArray(parsed) ? parsed : [parsed];
+            } catch (e) {
+                console.error("Error parsing card JSON:", e);
+            }
+        }
+        return { text: cleanedText, richCards };
     };
 
     const selectedConvRef = useRef<Conversation | null>(null);
@@ -438,8 +461,8 @@ const Support = () => {
                                                 </span>
                                             </div>
 
-                                            <p className="text-xs text-gray-500 truncate mb-1">
-                                                {conv.lastMessage || 'Chưa có tin nhắn'}
+                                            <p className="text-xs text-gray-500 truncate mb-1 font-sans">
+                                                {conv.lastMessage ? parseAiResponse(conv.lastMessage).text : 'Chưa có tin nhắn'}
                                             </p>
 
                                             <div className="flex justify-between items-center text-[10px] text-gray-400 mt-2 font-medium">
@@ -510,16 +533,17 @@ const Support = () => {
                                             );
                                         }
 
-                                        const isAdmin = msg.senderType === 'ADMIN';
+                                        const isStoreSide = msg.senderType === 'ADMIN' || msg.senderType === 'AI';
+                                        const { text, richCards } = parseAiResponse(msg.content);
 
                                         return (
-                                            <div key={msg.id || index} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                                            <div key={msg.id || index} className={`flex ${isStoreSide ? 'justify-end' : 'justify-start'}`}>
                                                 <div className={`max-w-md rounded-2xl p-3 shadow-sm ${
-                                                    isAdmin 
+                                                    isStoreSide 
                                                     ? 'bg-[#8C5A35] text-white rounded-tr-none' 
                                                     : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
                                                 }`}>
-                                                    <div className="flex items-center justify-between gap-4 mb-1 text-[10px] opacity-75 font-bold">
+                                                    <div className="flex items-center justify-between gap-4 mb-1 text-[10px] opacity-75 font-bold font-sans">
                                                         <span>{msg.senderName}</span>
                                                         {msg.createdAt && (
                                                             <span>{formatDateTime(msg.createdAt, true)}</span>
@@ -538,7 +562,91 @@ const Support = () => {
                                                             }}
                                                         />
                                                     ) : (
-                                                        <p className="text-xs leading-relaxed font-medium whitespace-pre-wrap">{msg.content}</p>
+                                                        <div className="font-sans">
+                                                            <p className="text-xs leading-relaxed font-medium whitespace-pre-wrap">{text}</p>
+                                                            
+                                                            {richCards.length > 0 && (
+                                                                <div className="ai-carousel mt-3">
+                                                                    {richCards.map((card, idx) => {
+                                                                        const isProduct = card.type === 'product';
+                                                                        const isVoucher = card.type === 'voucher';
+                                                                        const isBranch = card.type === 'branch';
+
+                                                                        return (
+                                                                            <div key={idx} className={`ai-card ${isVoucher ? 'ai-voucher-card' : ''}`}>
+                                                                                {isProduct && (
+                                                                                    <>
+                                                                                        <img 
+                                                                                            src={card.image || PLACEHOLDER_IMAGE} 
+                                                                                            alt={card.name} 
+                                                                                            className="ai-product-img"
+                                                                                        />
+                                                                                        <div className="ai-product-info text-[#2C1E16]">
+                                                                                            <span className="ai-product-name">{card.name}</span>
+                                                                                            <span className="ai-product-price">{(card.price || 0).toLocaleString()}đ</span>
+                                                                                            <button 
+                                                                                                className="ai-card-btn ai-product-btn cursor-default"
+                                                                                                disabled
+                                                                                            >
+                                                                                                Đặc sản Phê La
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </>
+                                                                                )}
+                                                                                {isVoucher && (() => {
+                                                                                    const val = card.value || card.discount;
+                                                                                    const exp = card.endDate || card.expiry || 'Vô thời hạn';
+                                                                                    let displayVal = 'Ưu đãi';
+                                                                                    if (val) {
+                                                                                        if (typeof val === 'number') {
+                                                                                            displayVal = val >= 1000 ? `${(val / 1000)}k` : `${val}%`;
+                                                                                        } else {
+                                                                                            displayVal = String(val);
+                                                                                        }
+                                                                                    }
+                                                                                    return (
+                                                                                        <>
+                                                                                            <div className="ai-voucher-badge text-[#C2956E]">
+                                                                                                {displayVal}
+                                                                                            </div>
+                                                                                            <div className="ai-voucher-name text-white">{card.name || card.description}</div>
+                                                                                            <div className="ai-voucher-expiry text-white/50">HSD: {exp}</div>
+                                                                                            <button 
+                                                                                                className="ai-card-btn ai-voucher-btn cursor-default"
+                                                                                                disabled
+                                                                                            >
+                                                                                                Mã: {card.code}
+                                                                                            </button>
+                                                                                        </>
+                                                                                    );
+                                                                                })()}
+                                                                                {isBranch && (
+                                                                                    <div className="flex flex-col h-full p-4 bg-[#FCF8F1] justify-between flex-grow text-[#2C1E16]">
+                                                                                        <div className="flex flex-col gap-2">
+                                                                                            <div className="w-10 h-10 rounded-full bg-[#8C5A35]/10 text-[#8C5A35] flex items-center justify-center text-lg self-center mb-1">
+                                                                                                📍
+                                                                                            </div>
+                                                                                            <div className="font-extrabold text-xs text-center line-clamp-2 min-h-[32px] leading-tight">
+                                                                                                {card.name}
+                                                                                            </div>
+                                                                                            <div className="text-[10px] text-gray-500 text-center line-clamp-3 min-h-[42px] leading-normal font-medium">
+                                                                                                {card.address}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <button 
+                                                                                            className="ai-card-btn ai-product-btn mt-4 cursor-default"
+                                                                                            disabled
+                                                                                        >
+                                                                                            Chi nhánh
+                                                                                        </button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>

@@ -14,6 +14,7 @@ import com.example.be_phela.model.enums.Roles;
 import com.example.be_phela.model.enums.Status;
 import com.example.be_phela.repository.AdminRepository;
 import com.example.be_phela.repository.BranchRepository;
+import com.example.be_phela.repository.VerificationTokenRepository;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -35,15 +36,18 @@ public class AdminService implements IAdminService {
     private final BranchRepository branchRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final AdminMapper adminMapper;
+    private final VerificationTokenRepository verificationTokenRepository;
 
     public AdminService(AdminRepository adminRepository,
                         BranchRepository branchRepository,
                         BCryptPasswordEncoder passwordEncoder,
-                        AdminMapper adminMapper) {
+                        AdminMapper adminMapper,
+                        VerificationTokenRepository verificationTokenRepository) {
         this.adminRepository = adminRepository;
         this.branchRepository = branchRepository;
         this.passwordEncoder = passwordEncoder;
         this.adminMapper = adminMapper;
+        this.verificationTokenRepository = verificationTokenRepository;
     }
 
     @Override
@@ -107,12 +111,51 @@ public class AdminService implements IAdminService {
             throw new DuplicateResourceException("Email already exists");
         }
 
+        // Kiểm tra thay đổi vai trò và trạng thái
+        boolean isRoleChanged = false;
+        Roles newRole = null;
+        if (adminDTO.getRole() != null && !adminDTO.getRole().trim().isEmpty()) {
+            try {
+                newRole = Roles.valueOf(adminDTO.getRole().toUpperCase());
+                if (adminToUpdate.getRole() != newRole) {
+                    isRoleChanged = true;
+                }
+            } catch (IllegalArgumentException ignored) {}
+        }
+
+        boolean isStatusChanged = false;
+        Status newStatus = null;
+        if (adminDTO.getStatus() != null && !adminDTO.getStatus().trim().isEmpty()) {
+            try {
+                newStatus = Status.valueOf(adminDTO.getStatus().toUpperCase());
+                if (adminToUpdate.getStatus() != newStatus) {
+                    isStatusChanged = true;
+                }
+            } catch (IllegalArgumentException ignored) {}
+        }
+
+        if (isRoleChanged || isStatusChanged) {
+            String currentUsername = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+            Admin currentAdmin = adminRepository.findByUsername(currentUsername)
+                    .orElseThrow(() -> new ResourceNotFoundException("Current admin not found with username: " + currentUsername));
+            if (!currentAdmin.getRole().equals(Roles.SUPER_ADMIN)) {
+                throw new SecurityException("Chỉ Super Admin mới được quyền thay đổi vai trò hoặc trạng thái nhân viên!");
+            }
+        }
+
         // Cập nhật thông tin
         adminToUpdate.setFullname(adminDTO.getFullname());
         adminToUpdate.setDob(adminDTO.getDob());
         adminToUpdate.setGender(adminDTO.getGender());
         adminToUpdate.setEmail(adminDTO.getEmail());
         adminToUpdate.setPhone(adminDTO.getPhone());
+
+        if (newRole != null) {
+            adminToUpdate.setRole(newRole);
+        }
+        if (newStatus != null) {
+            adminToUpdate.setStatus(newStatus);
+        }
 
         Admin updatedAdmin = adminRepository.save(adminToUpdate);
         log.info("Admin info updated successfully for username: {}", username);
@@ -208,5 +251,97 @@ public class AdminService implements IAdminService {
         Admin updatedAdmin = adminRepository.save(adminToUpdate);
         log.info("Admin password updated successfully for username: {}", username);
         return adminMapper.toAdminResponseDTO(updatedAdmin);
+    }
+
+    @Override
+    @Transactional
+    public AdminResponseDTO createAdmin(AdminCreateDTO adminCreateDTO) {
+        log.info("Creating admin with username: {}", adminCreateDTO.getUsername());
+        if (adminRepository.existsByUsername(adminCreateDTO.getUsername())) {
+            throw new DuplicateResourceException("Tên đăng nhập đã tồn tại trong hệ thống!");
+        }
+        if (adminRepository.existsByEmail(adminCreateDTO.getEmail())) {
+            throw new DuplicateResourceException("Email đã tồn tại trong hệ thống!");
+        }
+        if (adminCreateDTO.getEmployCode() != null && !adminCreateDTO.getEmployCode().trim().isEmpty()
+                && adminRepository.existsByEmployCode(adminCreateDTO.getEmployCode())) {
+            throw new DuplicateResourceException("Mã nhân viên đã tồn tại trong hệ thống!");
+        }
+        if (adminRepository.existsByFullname(adminCreateDTO.getFullname())) {
+            throw new DuplicateResourceException("Họ tên nhân viên đã tồn tại trong hệ thống!");
+        }
+
+        Admin admin = adminMapper.toAdmin(adminCreateDTO);
+
+        // Mã hóa mật khẩu
+        admin.setPassword(passwordEncoder.encode(adminCreateDTO.getPassword()));
+
+        // Gán mã nhân viên
+        if (adminCreateDTO.getEmployCode() == null || adminCreateDTO.getEmployCode().trim().isEmpty()) {
+            admin.setEmployCode(generateEmployCode());
+        } else {
+            admin.setEmployCode(adminCreateDTO.getEmployCode());
+        }
+
+        // Gán vai trò
+        if (adminCreateDTO.getRole() != null && !adminCreateDTO.getRole().trim().isEmpty()) {
+            try {
+                admin.setRole(Roles.valueOf(adminCreateDTO.getRole().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                admin.setRole(Roles.STAFF);
+            }
+        } else {
+            admin.setRole(Roles.STAFF);
+        }
+
+        // Gán trạng thái
+        if (adminCreateDTO.getStatus() != null && !adminCreateDTO.getStatus().trim().isEmpty()) {
+            try {
+                admin.setStatus(Status.valueOf(adminCreateDTO.getStatus().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                admin.setStatus(Status.ACTIVE);
+            }
+        } else {
+            admin.setStatus(Status.ACTIVE);
+        }
+
+        // Gán chi nhánh
+        if (adminCreateDTO.getBranch() != null && !adminCreateDTO.getBranch().trim().isEmpty()) {
+            Branch branch = branchRepository.findByBranchCode(adminCreateDTO.getBranch())
+                    .orElse(null);
+            admin.setBranch(branch);
+        }
+
+        admin.setFailedLoginAttempts(0);
+
+        Admin savedAdmin = adminRepository.save(admin);
+        log.info("Admin created successfully with username: {}", savedAdmin.getUsername());
+        return adminMapper.toAdminResponseDTO(savedAdmin);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAdmin(String username) {
+        log.info("Deleting admin with username: {}", username);
+
+        String currentUsername = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        Admin currentAdmin = adminRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Current admin not found with username: " + currentUsername));
+        if (!currentAdmin.getRole().equals(Roles.SUPER_ADMIN)) {
+            throw new SecurityException("Chỉ Super Admin mới có quyền xóa nhân viên!");
+        }
+
+        Admin adminToDelete = adminRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found with username: " + username));
+
+        if (adminToDelete.getUsername().equals(currentUsername)) {
+            throw new IllegalArgumentException("Không thể tự xóa chính mình!");
+        }
+
+        // Delete associated verification tokens first to prevent foreign key violations
+        verificationTokenRepository.deleteByAdmin(adminToDelete);
+
+        adminRepository.delete(adminToDelete);
+        log.info("Admin deleted successfully: {}", username);
     }
 }

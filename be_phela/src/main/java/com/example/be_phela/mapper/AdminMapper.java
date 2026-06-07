@@ -11,6 +11,8 @@ import org.mapstruct.ReportingPolicy;
 public interface AdminMapper {
     @Mapping(source = "fullname", target = "fullname")
     @Mapping(source = "branch", target = "branch", qualifiedByName = "mapStringToBranch")
+    @Mapping(target = "role", ignore = true)
+    @Mapping(target = "status", ignore = true)
     Admin toAdmin(AdminCreateDTO admin);
 
     @Mapping(source = "id", target = "adminId")

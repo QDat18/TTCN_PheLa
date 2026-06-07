@@ -540,6 +540,87 @@ classDiagram
 
 ---
 
+#### 2.2.3. Phân hệ Báo cáo & Dashboard (Dashboard & Reports Use Case - Design Class Diagram)
+
+*   **Tác nhân**: `Admin_Actor` (Quản trị viên / Nhân viên).
+*   **Lớp biên (Boundary)**:
+    *   `GiaoDienDashboard` (Xem thông tin KPIs tóm tắt và danh sách đơn mới nhất).
+    *   `GiaoDienBaoCaoDoanhThu` (Xem báo cáo doanh thu của các chi nhánh theo chu kỳ thời gian).
+    *   `GiaoDienBaoCaoDonHang` (Xem phân bổ trạng thái đơn hàng và thống kê danh mục sản phẩm).
+*   **Lớp điều khiển (Control)**: `DieuKhienBaoCao` (Chịu trách nhiệm truy vấn tổng hợp từ các bảng và thực hiện logic phân quyền chi nhánh).
+*   **Lớp truy xuất dữ liệu (DAO)**:
+    *   `OrderDAO`, `ProductDAO`, `CustomerDAO`, `BranchDAO`, `AdminDAO`.
+*   **Lớp thực thể (Entity)**:
+    *   `Order`, `Product`, `Customer`, `Branch`, `Admin`.
+
+```mermaid
+classDiagram
+    %% Stereotypes Definition & Styling
+    classDef boundary fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+    classDef control fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+    classDef entity fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+    classDef dao fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
+    classDef actor fill:#fce4ec,stroke:#c2185b,stroke-width:2px;
+
+    %% Elements
+    class Admin_Actor {
+        <<Actor>>
+    }
+    class GiaoDienDashboard {
+        <<Boundary / UI>>
+        +hienThiDashboard() void
+    }
+    class GiaoDienBaoCaoDoanhThu {
+        <<Boundary / UI>>
+        +hienThiBaoCao() void
+        +nutXuatExcelClick() void
+    }
+    class GiaoDienBaoCaoDonHang {
+        <<Boundary / UI>>
+        +hienThiBaoCao() void
+    }
+    class DieuKhienBaoCao {
+        <<Control>>
+        -OrderDAO orderDAO
+        -ProductDAO productDAO
+        +layThongTinDashboard(String token) Object
+        +layBaoCaoDoanhThuChiNhanh(String token, String period) List
+        +layBaoCaoDonHangAnl(String token) Object
+    }
+    class OrderDAO {
+        <<Interface / DAO>>
+        +sumRevenueThisMonth() double
+        +findBranchRevenue(String period) List
+    }
+    class ProductDAO {
+        <<Interface / DAO>>
+        +countActiveProducts() long
+    }
+
+    %% Apply Styles
+    style Admin_Actor actor
+    style GiaoDienDashboard boundary
+    style GiaoDienBaoCaoDoanhThu boundary
+    style GiaoDienBaoCaoDonHang boundary
+    style DieuKhienBaoCao control
+    style OrderDAO dao
+    style ProductDAO dao
+
+    %% Design Connections & Flow
+    Admin_Actor --> GiaoDienDashboard : (1) Tương tác (Interacts)
+    Admin_Actor --> GiaoDienBaoCaoDoanhThu : (1) Tương tác (Interacts)
+    Admin_Actor --> GiaoDienBaoCaoDonHang : (1) Tương tác (Interacts)
+    
+    GiaoDienDashboard --> DieuKhienBaoCao : (2) Gọi xử lý (Calls Control)
+    GiaoDienBaoCaoDoanhThu --> DieuKhienBaoCao : (2) Gửi yêu cầu lọc / xuất (Sends Request)
+    GiaoDienBaoCaoDonHang --> DieuKhienBaoCao : (2) Gọi xử lý (Calls Control)
+    
+    DieuKhienBaoCao --> OrderDAO : (3) Truy vấn doanh thu / đơn hàng (Calls DAO)
+    DieuKhienBaoCao --> ProductDAO : (3) Truy vấn sản phẩm (Calls DAO)
+```
+
+---
+
 ## 3. Biểu đồ Đối tượng Tổng quan (System Object Diagram - ODM)
 
 Trong phân tích thiết kế hướng đối tượng (OOAD), **Biểu đồ Đối tượng (Object Diagram - ODM)** đóng vai trò chụp lại trạng thái runtime cụ thể của hệ thống tại một thời điểm xác định. Dưới đây là biểu đồ đối tượng tổng quan bao quát toàn bộ các nghiệp vụ lớn của hệ thống PheLaWeb: **Đặt hàng, Chăm sóc khách hàng bằng AI, Tích điểm thành viên và Quản lý cửa hàng/sản phẩm**:

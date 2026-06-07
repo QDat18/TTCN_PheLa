@@ -19,6 +19,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
+import java.io.ByteArrayOutputStream;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -558,6 +561,281 @@ public class OrderService implements IOrderService {
                     log.info("Voucher {} usedCount rolled back for order {}", voucher.getCode(), order.getOrderCode());
                 }
             });
+        }
+    }
+
+    @Override
+    public Page<OrderResponseDTO> searchAndFilterOrders(
+            OrderStatus status,
+            String branchCode,
+            com.example.be_phela.model.enums.PaymentMethod paymentMethod,
+            String startDateStr,
+            String endDateStr,
+            String query,
+            Pageable pageable) {
+        
+        LocalDateTime startDate = null;
+        LocalDateTime endDate = null;
+        
+        if (startDateStr != null && !startDateStr.trim().isEmpty()) {
+            try {
+                startDate = java.time.LocalDate.parse(startDateStr.trim()).atStartOfDay();
+            } catch (Exception e) {
+                log.warn("Failed to parse startDate: {}", startDateStr, e);
+            }
+        }
+        
+        if (endDateStr != null && !endDateStr.trim().isEmpty()) {
+            try {
+                endDate = java.time.LocalDate.parse(endDateStr.trim()).atTime(23, 59, 59);
+            } catch (Exception e) {
+                log.warn("Failed to parse endDate: {}", endDateStr, e);
+            }
+        }
+        
+        String cleanQuery = (query != null && !query.trim().isEmpty()) ? query.trim() : null;
+        String cleanBranchCode = (branchCode != null && !branchCode.trim().isEmpty()) ? branchCode.trim() : null;
+        
+        boolean hasStatus = (status != null);
+        OrderStatus finalStatus = hasStatus ? status : OrderStatus.PENDING;
+
+        boolean hasBranch = (cleanBranchCode != null);
+        String finalBranchCode = hasBranch ? cleanBranchCode : "";
+
+        boolean hasPaymentMethod = (paymentMethod != null);
+        com.example.be_phela.model.enums.PaymentMethod finalPaymentMethod = hasPaymentMethod ? paymentMethod : com.example.be_phela.model.enums.PaymentMethod.COD;
+
+        boolean hasStartDate = (startDate != null);
+        LocalDateTime finalStartDate = hasStartDate ? startDate : LocalDateTime.now();
+
+        boolean hasEndDate = (endDate != null);
+        LocalDateTime finalEndDate = hasEndDate ? endDate : LocalDateTime.now();
+
+        boolean hasQuery = (cleanQuery != null);
+        String finalQuery = hasQuery ? cleanQuery : "";
+
+        Pageable cappedPageable = capPageable(pageable);
+        return orderRepository.searchAndFilterOrders(
+                hasStatus,
+                finalStatus,
+                hasBranch,
+                finalBranchCode,
+                hasPaymentMethod,
+                finalPaymentMethod,
+                hasStartDate,
+                finalStartDate,
+                hasEndDate,
+                finalEndDate,
+                hasQuery,
+                finalQuery,
+                cappedPageable
+        ).map(this::mapToResponseDTO);
+    }
+
+    @Override
+    public byte[] exportOrdersExcel(
+            OrderStatus status,
+            String branchCode,
+            com.example.be_phela.model.enums.PaymentMethod paymentMethod,
+            String startDateStr,
+            String endDateStr,
+            String query) throws java.io.IOException {
+        
+        LocalDateTime startDate = null;
+        LocalDateTime endDate = null;
+        
+        if (startDateStr != null && !startDateStr.trim().isEmpty()) {
+            try {
+                startDate = java.time.LocalDate.parse(startDateStr.trim()).atStartOfDay();
+            } catch (Exception e) {
+                log.warn("Failed to parse startDate: {}", startDateStr, e);
+            }
+        }
+        
+        if (endDateStr != null && !endDateStr.trim().isEmpty()) {
+            try {
+                endDate = java.time.LocalDate.parse(endDateStr.trim()).atTime(23, 59, 59);
+            } catch (Exception e) {
+                log.warn("Failed to parse endDate: {}", endDateStr, e);
+            }
+        }
+        
+        String cleanQuery = (query != null && !query.trim().isEmpty()) ? query.trim() : null;
+        String cleanBranchCode = (branchCode != null && !branchCode.trim().isEmpty()) ? branchCode.trim() : null;
+        
+        boolean hasStatus = (status != null);
+        OrderStatus finalStatus = hasStatus ? status : OrderStatus.PENDING;
+
+        boolean hasBranch = (cleanBranchCode != null);
+        String finalBranchCode = hasBranch ? cleanBranchCode : "";
+
+        boolean hasPaymentMethod = (paymentMethod != null);
+        com.example.be_phela.model.enums.PaymentMethod finalPaymentMethod = hasPaymentMethod ? paymentMethod : com.example.be_phela.model.enums.PaymentMethod.COD;
+
+        boolean hasStartDate = (startDate != null);
+        LocalDateTime finalStartDate = hasStartDate ? startDate : LocalDateTime.now();
+
+        boolean hasEndDate = (endDate != null);
+        LocalDateTime finalEndDate = hasEndDate ? endDate : LocalDateTime.now();
+
+        boolean hasQuery = (cleanQuery != null);
+        String finalQuery = hasQuery ? cleanQuery : "";
+
+        List<Order> ordersList = orderRepository.searchAndFilterOrdersList(
+                hasStatus,
+                finalStatus,
+                hasBranch,
+                finalBranchCode,
+                hasPaymentMethod,
+                finalPaymentMethod,
+                hasStartDate,
+                finalStartDate,
+                hasEndDate,
+                finalEndDate,
+                hasQuery,
+                finalQuery
+        );
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            XSSFSheet sheet = workbook.createSheet("Đơn hàng");
+
+            // Fonts & Styles
+            Font titleFont = workbook.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 16);
+            titleFont.setColor(IndexedColors.DARK_BLUE.getIndex());
+
+            CellStyle titleStyle = workbook.createCellStyle();
+            titleStyle.setFont(titleFont);
+
+            Font subFont = workbook.createFont();
+            subFont.setBold(true);
+            subFont.setFontHeightInPoints((short) 11);
+
+            CellStyle subStyle = workbook.createCellStyle();
+            subStyle.setFont(subFont);
+
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.BROWN.getIndex()); // Matching Phe La brown
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderTop(BorderStyle.THIN);
+            dataStyle.setBorderLeft(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+
+            CellStyle numberStyle = workbook.createCellStyle();
+            numberStyle.cloneStyleFrom(dataStyle);
+            DataFormat format = workbook.createDataFormat();
+            numberStyle.setDataFormat(format.getFormat("#,##0"));
+
+            // Calculate Aggregate Stats
+            double totalRevenue = 0.0;
+            double totalDiscounts = 0.0;
+            for (Order o : ordersList) {
+                totalRevenue += o.getFinalAmount() != null ? o.getFinalAmount() : 0.0;
+                totalDiscounts += o.getDiscountAmount() != null ? o.getDiscountAmount() : 0.0;
+            }
+
+            // Write Title & Stats
+            Row titleRow = sheet.createRow(0);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("BÁO CÁO CHI TIẾT DANH SÁCH ĐƠN HÀNG PHÊ LA");
+            titleCell.setCellStyle(titleStyle);
+
+            Row statsRow1 = sheet.createRow(2);
+            statsRow1.createCell(0).setCellValue("Tổng số đơn hàng:");
+            statsRow1.createCell(1).setCellValue(ordersList.size());
+            statsRow1.getCell(0).setCellStyle(subStyle);
+
+            Row statsRow2 = sheet.createRow(3);
+            statsRow2.createCell(0).setCellValue("Tổng doanh thu:");
+            statsRow2.createCell(1).setCellValue(totalRevenue);
+            statsRow2.getCell(1).setCellStyle(numberStyle);
+            statsRow2.getCell(0).setCellStyle(subStyle);
+
+            Row statsRow3 = sheet.createRow(4);
+            statsRow3.createCell(0).setCellValue("Tổng tiền giảm giá:");
+            statsRow3.createCell(1).setCellValue(totalDiscounts);
+            statsRow3.getCell(1).setCellStyle(numberStyle);
+            statsRow3.getCell(0).setCellStyle(subStyle);
+
+            // Table Header Row at Index 6
+            Row headerRow = sheet.createRow(6);
+            String[] columns = {
+                "STT", "Mã đơn hàng", "Ngày đặt", "Khách hàng", "Số điện thoại", 
+                "Chi nhánh", "Địa chỉ giao hàng", "Hình thức thanh toán", 
+                "Trạng thái thanh toán", "Trạng thái đơn hàng", 
+                "Tổng tiền hàng", "Phí giao hàng", "Tiền giảm giá", "Tổng thanh toán", "Ghi chú"
+            };
+
+            for (int i = 0; i < columns.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(columns[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // Populate Data Row starts at Index 7
+            int rowNum = 7;
+            int stt = 1;
+            for (Order o : ordersList) {
+                Row row = sheet.createRow(rowNum++);
+                
+                row.createCell(0).setCellValue(stt++);
+                row.createCell(1).setCellValue(o.getOrderCode());
+                row.createCell(2).setCellValue(o.getOrderDate() != null ? o.getOrderDate().toString().replace("T", " ") : "");
+                row.createCell(3).setCellValue(o.getCustomer() != null ? o.getCustomer().getFullname() : "");
+                row.createCell(4).setCellValue(o.getPhone() != null ? o.getPhone() : (o.getCustomer() != null ? o.getCustomer().getPhone() : ""));
+                row.createCell(5).setCellValue(o.getBranch() != null ? o.getBranch().getBranchName() : "Chưa xác định");
+                row.createCell(6).setCellValue(o.getAddressText() != null ? o.getAddressText() : "");
+                row.createCell(7).setCellValue(o.getPaymentMethod() != null ? o.getPaymentMethod().name() : "");
+                row.createCell(8).setCellValue(o.getPaymentStatus() != null ? o.getPaymentStatus().name() : "");
+                row.createCell(9).setCellValue(o.getStatus() != null ? o.getStatus().name() : "");
+                
+                Cell cTotal = row.createCell(10);
+                cTotal.setCellValue(o.getTotalAmount() != null ? o.getTotalAmount() : 0.0);
+                cTotal.setCellStyle(numberStyle);
+
+                Cell cShip = row.createCell(11);
+                cShip.setCellValue(o.getShippingFee() != null ? o.getShippingFee() : 0.0);
+                cShip.setCellStyle(numberStyle);
+
+                Cell cDisc = row.createCell(12);
+                cDisc.setCellValue(o.getDiscountAmount() != null ? o.getDiscountAmount() : 0.0);
+                cDisc.setCellStyle(numberStyle);
+
+                Cell cFinal = row.createCell(13);
+                cFinal.setCellValue(o.getFinalAmount() != null ? o.getFinalAmount() : 0.0);
+                cFinal.setCellStyle(numberStyle);
+
+                row.createCell(14).setCellValue(o.getNote() != null ? o.getNote() : "");
+
+                // Style standard text cells
+                for (int i = 0; i <= 9; i++) {
+                    row.getCell(i).setCellStyle(dataStyle);
+                }
+                row.getCell(14).setCellStyle(dataStyle);
+            }
+
+            // Auto-size columns
+            for (int i = 0; i < columns.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
         }
     }
 }

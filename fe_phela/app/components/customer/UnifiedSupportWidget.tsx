@@ -456,7 +456,7 @@ const UnifiedSupportWidget = () => {
                                     );
                                 }
 
-                                const isBot = (msg.senderType as string) === 'AI' || (msg.senderType as string) === 'SYSTEM';
+                                const isBot = msg.senderType !== 'CUSTOMER';
                                 const { text, richCards } = parseAiResponse(msg.content);
 
                                 return (
@@ -478,21 +478,23 @@ const UnifiedSupportWidget = () => {
                                             <div>
                                                 <p className="m-0 leading-relaxed font-medium">{text}</p>
                                                 
-                                                {/* Render Product or Voucher Cards if available */}
                                                 {richCards.length > 0 && (
                                                     <div className="ai-carousel mt-3">
                                                         {richCards.map((card, idx) => {
                                                             const isProduct = card.type === 'product';
+                                                            const isVoucher = card.type === 'voucher';
+                                                            const isBranch = card.type === 'branch';
+
                                                             return (
-                                                                <div key={idx} className={`ai-card ${!isProduct ? 'ai-voucher-card' : ''}`}>
-                                                                    {isProduct ? (
+                                                                <div key={idx} className={`ai-card ${isVoucher ? 'ai-voucher-card' : ''}`}>
+                                                                    {isProduct && (
                                                                         <>
                                                                             <img 
                                                                                 src={card.image || PLACEHOLDER_IMAGE} 
                                                                                 alt={card.name} 
                                                                                 className="ai-product-img"
                                                                             />
-                                                                            <div className="ai-product-info">
+                                                                            <div className="ai-product-info text-[#2C1E16]">
                                                                                 <span className="ai-product-name">{card.name}</span>
                                                                                 <span className="ai-product-price">{(card.price || 0).toLocaleString()}đ</span>
                                                                                 <button 
@@ -503,20 +505,54 @@ const UnifiedSupportWidget = () => {
                                                                                 </button>
                                                                             </div>
                                                                         </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <div className="ai-voucher-badge">
-                                                                                {card.discount >= 1000 ? `${(card.discount / 1000)}k` : `${card.discount}%`}
+                                                                    )}
+                                                                    {isVoucher && (() => {
+                                                                        const val = card.value || card.discount;
+                                                                        const exp = card.endDate || card.expiry || 'Vô thời hạn';
+                                                                        let displayVal = 'Ưu đãi';
+                                                                        if (val) {
+                                                                            if (typeof val === 'number') {
+                                                                                displayVal = val >= 1000 ? `${(val / 1000)}k` : `${val}%`;
+                                                                            } else {
+                                                                                displayVal = String(val);
+                                                                            }
+                                                                        }
+                                                                        return (
+                                                                            <>
+                                                                                <div className="ai-voucher-badge text-[#C2956E]">
+                                                                                    {displayVal}
+                                                                                </div>
+                                                                                <div className="ai-voucher-name text-white">{card.name || card.description}</div>
+                                                                                <div className="ai-voucher-expiry text-white/50">HSD: {exp}</div>
+                                                                                <button 
+                                                                                    className="ai-card-btn ai-voucher-btn"
+                                                                                    onClick={() => handleCopyVoucher(card.code)}
+                                                                                >
+                                                                                    Lưu mã: {card.code}
+                                                                                </button>
+                                                                            </>
+                                                                        );
+                                                                    })()}
+                                                                    {isBranch && (
+                                                                        <div className="flex flex-col h-full p-4 bg-[#FCF8F1] justify-between flex-grow text-[#2C1E16]">
+                                                                            <div className="flex flex-col gap-2">
+                                                                                <div className="w-10 h-10 rounded-full bg-[#8C5A35]/10 text-[#8C5A35] flex items-center justify-center text-lg self-center mb-1">
+                                                                                    📍
+                                                                                </div>
+                                                                                <div className="font-extrabold text-xs text-center line-clamp-2 min-h-[32px] leading-tight">
+                                                                                    {card.name}
+                                                                                </div>
+                                                                                <div className="text-[10px] text-gray-500 text-center line-clamp-3 min-h-[42px] leading-normal font-medium">
+                                                                                    {card.address}
+                                                                                </div>
                                                                             </div>
-                                                                            <div className="ai-voucher-name">{card.name || card.description}</div>
-                                                                            <div className="ai-voucher-expiry">HSD: {card.expiry || 'Vô thời hạn'}</div>
                                                                             <button 
-                                                                                className="ai-card-btn ai-voucher-btn"
-                                                                                onClick={() => handleCopyVoucher(card.code)}
+                                                                                className="ai-card-btn ai-product-btn mt-4 cursor-pointer"
+                                                                                onClick={() => window.open('/he-thong-cua-hang', '_blank')}
                                                                             >
-                                                                                Lưu mã: {card.code}
+                                                                                Bản đồ
                                                                             </button>
-                                                                        </>
+                                                                        </div>
                                                                     )}
                                                                 </div>
                                                             );
