@@ -67,7 +67,8 @@ const VoucherManager = () => {
             setFormData({
                 ...voucher,
                 startDate: voucher.startDate.slice(0, 16),
-                endDate: voucher.endDate.slice(0, 16)
+                endDate: voucher.endDate.slice(0, 16),
+                status: voucher.status === 'EXPIRED' ? 'ACTIVE' : voucher.status
             });
         } else {
             setEditingVoucher(null);
@@ -102,11 +103,16 @@ const VoucherManager = () => {
         }
 
         try {
+            const submitData = { ...formData };
+            if (submitData.status === 'EXPIRED') {
+                submitData.status = 'ACTIVE';
+            }
+
             if (editingVoucher) {
-                await updateVoucher(editingVoucher.id, formData);
+                await updateVoucher(editingVoucher.id, submitData);
                 toast.success('Cập nhật mã giảm giá thành công!');
             } else {
-                await createVoucher(formData);
+                await createVoucher(submitData);
                 toast.success('Tạo mã giảm giá thành công!');
             }
             setIsModalOpen(false);

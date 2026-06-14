@@ -79,7 +79,18 @@ public class VoucherServiceImpl implements VoucherService {
         voucher.setMaxDiscountAmount(voucherDetails.getMaxDiscountAmount());
         voucher.setStartDate(voucherDetails.getStartDate());
         voucher.setEndDate(voucherDetails.getEndDate());
-        voucher.setStatus(voucherDetails.getStatus());
+
+        com.example.be_phela.model.enums.PromotionStatus newStatus = voucherDetails.getStatus();
+        if (newStatus == com.example.be_phela.model.enums.PromotionStatus.EXPIRED) {
+            LocalDateTime now = LocalDateTime.now();
+            if (voucherDetails.getEndDate() == null || voucherDetails.getEndDate().isAfter(now)) {
+                if (voucherDetails.getUsageLimit() == null || voucher.getUsedCount() == null || voucher.getUsedCount() < voucherDetails.getUsageLimit()) {
+                    newStatus = com.example.be_phela.model.enums.PromotionStatus.ACTIVE;
+                }
+            }
+        }
+        voucher.setStatus(newStatus);
+
         voucher.setUsageLimit(voucherDetails.getUsageLimit());
 
         return mapToDTO(voucherRepository.save(voucher));
