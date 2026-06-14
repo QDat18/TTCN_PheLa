@@ -78,7 +78,7 @@ public class SePayWebhookController {
                 String orderDesc = orderNode.path("order_description").asText("");
                 amountIn = txnNode.path("transaction_amount").asDouble(0.0);
 
-                Matcher m = Pattern.compile("(?i)PL\\d+").matcher(orderIdStr + " " + orderDesc);
+                Matcher m = Pattern.compile("(?i)(PL|ORD)\\d+").matcher(orderIdStr + " " + orderDesc);
                 if (m.find()) {
                     orderCode = m.group().toUpperCase();
                 }
@@ -92,7 +92,7 @@ public class SePayWebhookController {
                         ? payload.get("transferAmount").asDouble(0.0) 
                         : payload.path("amount_in").asDouble(0.0);
 
-                Matcher m = Pattern.compile("(?i)PL\\d+").matcher(content);
+                Matcher m = Pattern.compile("(?i)(PL|ORD)\\d+").matcher(content);
                 if (m.find()) {
                     orderCode = m.group().toUpperCase();
                 }
