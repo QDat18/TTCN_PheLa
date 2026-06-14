@@ -52,6 +52,12 @@ public class VoucherServiceImpl implements VoucherService {
         if (voucherRepository.findByCode(voucher.getCode()).isPresent()) {
             throw new RuntimeException("Voucher code already exists");
         }
+        if (voucher.getEndDate() != null && voucher.getStartDate() != null && voucher.getEndDate().isBefore(voucher.getStartDate())) {
+            throw new RuntimeException("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu");
+        }
+        if (voucher.getStartDate() != null && voucher.getStartDate().isBefore(LocalDateTime.now().minusMinutes(5))) {
+            throw new RuntimeException("Ngày bắt đầu không được ở quá khứ");
+        }
         return mapToDTO(voucherRepository.save(voucher));
     }
 
@@ -59,6 +65,10 @@ public class VoucherServiceImpl implements VoucherService {
     public VoucherResponseDTO updateVoucher(String id, Voucher voucherDetails) {
         Voucher voucher = voucherRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Voucher not found"));
+
+        if (voucherDetails.getEndDate() != null && voucherDetails.getStartDate() != null && voucherDetails.getEndDate().isBefore(voucherDetails.getStartDate())) {
+            throw new RuntimeException("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu");
+        }
 
         voucher.setCode(voucherDetails.getCode());
         voucher.setName(voucherDetails.getName());
@@ -92,7 +102,17 @@ public class VoucherServiceImpl implements VoucherService {
         dto.setMaxDiscountAmount(voucher.getMaxDiscountAmount());
         dto.setStartDate(voucher.getStartDate());
         dto.setEndDate(voucher.getEndDate());
-        dto.setStatus(voucher.getStatus());
+
+        com.example.be_phela.model.enums.PromotionStatus status = voucher.getStatus();
+        if (status == com.example.be_phela.model.enums.PromotionStatus.ACTIVE) {
+            LocalDateTime now = LocalDateTime.now();
+            if ((voucher.getEndDate() != null && voucher.getEndDate().isBefore(now)) ||
+                (voucher.getUsageLimit() != null && voucher.getUsedCount() != null && voucher.getUsedCount() >= voucher.getUsageLimit())) {
+                status = com.example.be_phela.model.enums.PromotionStatus.EXPIRED;
+            }
+        }
+        dto.setStatus(status);
+
         dto.setUsageLimit(voucher.getUsageLimit());
         dto.setUsedCount(voucher.getUsedCount());
         dto.setCreatedAt(voucher.getCreatedAt());

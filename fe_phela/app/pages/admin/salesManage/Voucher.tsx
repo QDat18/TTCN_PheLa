@@ -19,6 +19,11 @@ interface Voucher {
     usedCount: number;
 }
 
+const getLocalISOString = (date = new Date()) => {
+    const tzoffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - tzoffset).toISOString().slice(0, 16);
+};
+
 const VoucherManager = () => {
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
     const [loading, setLoading] = useState(true);
@@ -33,8 +38,8 @@ const VoucherManager = () => {
         value: 0,
         minOrderAmount: 0,
         maxDiscountAmount: 0,
-        startDate: new Date().toISOString().slice(0, 16),
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+        startDate: getLocalISOString(),
+        endDate: getLocalISOString(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
         status: 'ACTIVE',
         usageLimit: 100
     });
@@ -74,8 +79,8 @@ const VoucherManager = () => {
                 value: 0,
                 minOrderAmount: 0,
                 maxDiscountAmount: 0,
-                startDate: new Date().toISOString().slice(0, 16),
-                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+                startDate: getLocalISOString(),
+                endDate: getLocalISOString(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
                 status: 'ACTIVE',
                 usageLimit: 100
             });
@@ -85,6 +90,17 @@ const VoucherManager = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        const nowStr = getLocalISOString(new Date(Date.now() - 5 * 60 * 1000)); // 5 minutes buffer
+        if (!editingVoucher && formData.startDate && formData.startDate < nowStr) {
+            toast.error('Ngày bắt đầu không được nhỏ hơn thời gian hiện tại.');
+            return;
+        }
+        if (formData.endDate && formData.startDate && formData.endDate < formData.startDate) {
+            toast.error('Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.');
+            return;
+        }
+
         try {
             if (editingVoucher) {
                 await updateVoucher(editingVoucher.id, formData);
@@ -165,11 +181,11 @@ const VoucherManager = () => {
                                     <div className="p-6 flex-1">
                                         <div className="flex justify-between items-start mb-4">
                                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                                voucher.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 
-                                                voucher.status === 'EXPIRED' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                                                voucher.status === 'EXPIRED' || (voucher.status === 'ACTIVE' && ((voucher.endDate && new Date(voucher.endDate) < new Date()) || (voucher.usageLimit > 0 && voucher.usedCount >= voucher.usageLimit))) ? 'bg-red-100 text-red-700' : 
+                                                voucher.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
                                             }`}>
-                                                {voucher.status === 'ACTIVE' ? 'Đang chạy' : 
-                                                 voucher.status === 'EXPIRED' ? 'Hết hạn' : 'Đã tắt'}
+                                                {voucher.status === 'EXPIRED' || (voucher.status === 'ACTIVE' && ((voucher.endDate && new Date(voucher.endDate) < new Date()) || (voucher.usageLimit > 0 && voucher.usedCount >= voucher.usageLimit))) ? 'Hết hạn' : 
+                                                 voucher.status === 'ACTIVE' ? 'Đang chạy' : 'Đã tắt'}
                                             </span>
                                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={() => handleOpenModal(voucher)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"><FaEdit /></button>
@@ -317,6 +333,7 @@ const VoucherManager = () => {
                                         type="datetime-local" 
                                         className="w-full p-3 bg-[#FCF8F1] border-none rounded-xl focus:ring-2 focus:ring-[#8C5A35] text-[#2C1E16] font-bold"
                                         value={formData.startDate}
+                                        min={editingVoucher ? undefined : getLocalISOString()}
                                         onChange={(e) => setFormData({...formData, startDate: e.target.value})}
                                     />
                                 </div>
@@ -326,6 +343,7 @@ const VoucherManager = () => {
                                         type="datetime-local" 
                                         className="w-full p-3 bg-[#FCF8F1] border-none rounded-xl focus:ring-2 focus:ring-[#8C5A35] text-[#2C1E16] font-bold"
                                         value={formData.endDate}
+                                        min={formData.startDate || getLocalISOString()}
                                         onChange={(e) => setFormData({...formData, endDate: e.target.value})}
                                     />
                                 </div>
