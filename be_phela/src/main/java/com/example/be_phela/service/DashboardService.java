@@ -127,24 +127,40 @@ public class DashboardService {
     public DashboardSummaryDTO getDashboardSummary() {
         try {
             LocalDateTime now = LocalDateTime.now();
-            LocalDateTime startOfDay = now.with(LocalTime.MIN);
-            LocalDateTime startOfMonth = now.with(TemporalAdjusters.firstDayOfMonth()).with(LocalTime.MIN);
-            LocalDateTime sevenDaysAgo = now.minusDays(6).with(LocalTime.MIN);
 
-            // 1. Core Counts
-            long totalProducts = productRepository.count();
-            long totalStaff = adminRepository.count();
+            // Performance: Chạy song song tất cả các tác vụ DB độc lập thay vì tuần tự
+            java.util.concurrent.CompletableFuture<Long> totalProductsFuture =
+                    java.util.concurrent.CompletableFuture.supplyAsync(productRepository::count);
+            java.util.concurrent.CompletableFuture<Long> totalStaffFuture =
+                    java.util.concurrent.CompletableFuture.supplyAsync(adminRepository::count);
 
-            // 2. Revenue & Orders
-            RevenueReportDTO dayReport = getRevenueAndOrderReport("day");
-            RevenueReportDTO monthReport = getRevenueAndOrderReport("month");
-            RevenueReportDTO weekReport = getRevenueAndOrderReport("week");
+            java.util.concurrent.CompletableFuture<RevenueReportDTO> dayReportFuture =
+                    java.util.concurrent.CompletableFuture.supplyAsync(() -> getRevenueAndOrderReport("day"));
+            java.util.concurrent.CompletableFuture<RevenueReportDTO> monthReportFuture =
+                    java.util.concurrent.CompletableFuture.supplyAsync(() -> getRevenueAndOrderReport("month"));
+            java.util.concurrent.CompletableFuture<RevenueReportDTO> weekReportFuture =
+                    java.util.concurrent.CompletableFuture.supplyAsync(() -> getRevenueAndOrderReport("week"));
 
-            // 3. Status Map
-            Map<String, Long> orderCountByStatus = getOrderCountByStatus();
+            java.util.concurrent.CompletableFuture<Map<String, Long>> statusFuture =
+                    java.util.concurrent.CompletableFuture.supplyAsync(this::getOrderCountByStatus);
+            java.util.concurrent.CompletableFuture<List<DashboardStatsDTO.ProductStat>> topProductsFuture =
+                    java.util.concurrent.CompletableFuture.supplyAsync(this::getTopSellingProducts);
 
-            // 4. Top Products
-            List<DashboardStatsDTO.ProductStat> topSellingProducts = getTopSellingProducts();
+            // Đợi tất cả hoàn thành
+            java.util.concurrent.CompletableFuture.allOf(
+                    totalProductsFuture, totalStaffFuture,
+                    dayReportFuture, monthReportFuture, weekReportFuture,
+                    statusFuture, topProductsFuture
+            ).join();
+
+            // Lấy kết quả
+            long totalProducts = totalProductsFuture.join();
+            long totalStaff = totalStaffFuture.join();
+            RevenueReportDTO dayReport = dayReportFuture.join();
+            RevenueReportDTO monthReport = monthReportFuture.join();
+            RevenueReportDTO weekReport = weekReportFuture.join();
+            Map<String, Long> orderCountByStatus = statusFuture.join();
+            List<DashboardStatsDTO.ProductStat> topSellingProducts = topProductsFuture.join();
 
             return DashboardSummaryDTO.builder()
                     .totalProducts(totalProducts)

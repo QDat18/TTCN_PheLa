@@ -15,6 +15,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity(name = "orders")
+@Table(name = "orders", indexes = {
+    @Index(name = "idx_orders_status", columnList = "order_status"),
+    @Index(name = "idx_orders_order_date", columnList = "order_date"),
+    @Index(name = "idx_orders_status_date", columnList = "order_status, order_date"),
+    @Index(name = "idx_orders_branch_code", columnList = "branch_code"),
+    @Index(name = "idx_orders_order_code", columnList = "order_code"),
+    @Index(name = "idx_orders_customer_id", columnList = "customer_id"),
+    @Index(name = "idx_orders_payment_method", columnList = "payment_method"),
+    @Index(name = "idx_orders_status_branch_date", columnList = "order_status, branch_code, order_date")
+})
 public class Order {
     @Id
     @UuidGenerator

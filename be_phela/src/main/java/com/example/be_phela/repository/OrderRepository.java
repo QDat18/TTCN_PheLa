@@ -5,6 +5,7 @@ import com.example.be_phela.model.enums.OrderStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +20,7 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
 
+    @EntityGraph(attributePaths = {"customer", "branch", "address", "orderItems.product", "orderItems.productSize"})
     @Query("SELECT o FROM orders o WHERE " +
            "(:hasStatus = false OR o.status = :status) AND " +
            "(:hasBranch = false OR o.branch.branchCode = :branchCode) AND " +
@@ -42,6 +44,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             Pageable pageable
     );
 
+    @EntityGraph(attributePaths = {"customer", "branch", "address", "orderItems.product", "orderItems.productSize"})
     @Query("SELECT o FROM orders o WHERE " +
            "(:hasStatus = false OR o.status = :status) AND " +
            "(:hasBranch = false OR o.branch.branchCode = :branchCode) AND " +
@@ -75,9 +78,11 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     List<Order> findByOrderCodeContainingIgnoreCase(String orderCode);
 
     // Tìm các đơn hàng theo một trạng thái cụ thể
+    @EntityGraph(attributePaths = {"customer", "branch", "address", "orderItems.product", "orderItems.productSize"})
     @Query("SELECT o FROM orders o WHERE o.status = :status")
     Page<Order> findByStatus(@Param("status") OrderStatus status, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"customer", "branch", "address", "orderItems.product", "orderItems.productSize"})
     @Query("SELECT o FROM orders o WHERE o.customer.customerId = :customerId")
     Page<Order> findOrdersByCustomerId(@Param("customerId") String customerId, Pageable pageable);
 

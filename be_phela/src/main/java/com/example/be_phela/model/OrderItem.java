@@ -9,6 +9,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity(name = "order_items")
+@Table(name = "order_items", indexes = {
+    @Index(name = "idx_order_items_order_id", columnList = "order_id"),
+    @Index(name = "idx_order_items_product_id", columnList = "product_id")
+})
 public class OrderItem {
     @Id
     @UuidGenerator

@@ -15,6 +15,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,7 @@ public class BranchService implements IBranchService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"branches", "activeBranches"}, allEntries = true)
     public Branch createBranch(BranchCreateDTO branchDTO) {
         log.info("Creating new branch with name: {}", branchDTO.getBranchName());
 
@@ -68,6 +71,7 @@ public class BranchService implements IBranchService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"branches", "activeBranches"}, allEntries = true)
     public Branch updateBranch(String branchCode, BranchCreateDTO updatedBranchDTO) {
         Branch existingBranch = getBranchByCode(branchCode);
 
@@ -105,6 +109,7 @@ public class BranchService implements IBranchService {
 
     @Override
     @Transactional
+    @CacheEvict(value = {"branches", "activeBranches"}, allEntries = true)
     public Branch toggleBranchStatus(String branchCode) {
         log.info("Toggling status for branch with code: {}", branchCode);
         Branch branch = getBranchByCode(branchCode);
@@ -115,6 +120,7 @@ public class BranchService implements IBranchService {
     }
 
     @Override
+    @Cacheable(value = "branches")
     public List<Branch> getAllBranches() {
         return branchRepository.findAll();
     }
@@ -122,6 +128,7 @@ public class BranchService implements IBranchService {
     /**
      * Chỉ trả các chi nhánh có status SHOW cho public API.
      */
+    @Cacheable(value = "activeBranches")
     public List<Branch> getActiveBranches() {
         return branchRepository.findByStatus(ProductStatus.SHOW);
     }
